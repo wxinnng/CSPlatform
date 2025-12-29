@@ -13,6 +13,7 @@
         <module>csplatform-common</module>
         <module>csplatform-chat</module>
         <module>csplatform-user</module>
+        <module>csplatform-gateway</module>
     </modules>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

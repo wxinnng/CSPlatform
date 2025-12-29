@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: csplatform-file-router  # 路由ID，唯一即可
+          uri: http://localhost:8081  # 目标服务静态URI
+          predicates:
+            - Path=/api/file/**  # 断言条件：匹配路径
+          filters:
+            - StripPrefix=1  # 过滤器：去掉路径中的第一段（例如/api）
+        - id: csplatform-chat-router
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/chat/**
+          filters:
+            - StripPrefix=1
+        - id: csplatform-user-router
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - StripPrefix=1
+server:
+  port: 8080
