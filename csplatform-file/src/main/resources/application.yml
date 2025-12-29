@@ -19,3 +19,14 @@ mybatis-plus:
   type-aliases-package: com.example.entity      # 实体类所在包，用于别名简化
   configuration:
     map-underscore-to-camel-case: true          # 自动开启下划线到驼峰命名的映射
+feign:
+  client:
+    config:
+      service:
+        userService: "http://localhost:8083"
+        chatService: "http://localhost:8082"
+        fileService: "http://localhost:8081"
+      path:
+        userPath: "/user"
+        chatPath: "/chat"
+        filePath: "/file"

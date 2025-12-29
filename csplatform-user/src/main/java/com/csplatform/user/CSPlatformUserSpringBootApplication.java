@@ -4,6 +4,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.mybatis.spring.annotation.MapperScans;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 import javax.swing.*;
 
@@ -16,6 +17,7 @@ import javax.swing.*;
  */
 @SpringBootApplication
 @MapperScan("com.csplatform.user.mapper")
+@EnableFeignClients // 启用 OpenFeign
 public class CSPlatformUserSpringBootApplication {
     public static void main(String[] args) {
         SpringApplication.run(CSPlatformUserSpringBootApplication.class,args);
