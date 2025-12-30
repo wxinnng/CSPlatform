@@ -1,0 +1,546 @@
+package com.csplatform.user.service.impl;
+
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.csplatform.common.exception.BusinessException;
+import com.csplatform.user.entities.User;
+import com.csplatform.user.entities.dto.LoginDTO;
+import com.csplatform.user.entities.vo.LoginResultVO;
+import com.csplatform.user.entities.vo.LoginResultVO.UserVO;
+import com.csplatform.user.mapper.UserMapper;
+import com.csplatform.user.service.UserService;
+import jakarta.annotation.Resource;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * 简化的用户服务实现
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService {
+
+    // 使用@Resource或@Autowired注入
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
+
+    // 通过构造器注入HttpServletRequest
+    private final jakarta.servlet.http.HttpServletRequest request;
+
+    // 配置从application.yml读取
+    @Value("${jwt.secret:default-secret-key-change-in-production}")
+    private String jwtSecret;
+
+    @Value("${jwt.expire:3600}")
+    private Long jwtExpire;
+
+    @Value("${jwt.refresh-expire:604800}")
+    private Long refreshTokenExpire;
+
+    @Value("${login.max-attempts:5}")
+    private Integer maxLoginAttempts;
+
+    @Value("${login.lock-minutes:30}")
+    private Integer lockMinutes;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public LoginResultVO login(LoginDTO loginDTO) {
+        // 1. 参数验证
+        validateLoginDTO(loginDTO);
+
+        // 2. 获取用户 - 使用MyBatis-Plus的getOne方法
+        User user = getUserByEmail(loginDTO.getEmail());
+
+        // 3. 验证账户状态
+        validateAccountStatus(user);
+
+        // 4. 验证密码
+        validatePassword(user, loginDTO.getPassword());
+
+        // 5. 验证验证码（如果开启）
+        validateCaptcha(loginDTO);
+
+        // 6. 更新登录信息 - 使用MyBatis-Plus的updateById方法
+        updateLoginInfo(user);
+
+        // 7. 生成Token
+        String token = generateToken(user, loginDTO.getRememberMe());
+        String refreshToken = generateRefreshToken(user);
+
+        // 8. 获取用户角色和权限
+        List<String> roles = getUserRoles(user.getId());
+        List<String> permissions = getPermissionsByRoles(roles);
+
+        // 9. 返回登录结果
+        return buildLoginResult(user, token, refreshToken, roles, permissions, loginDTO.getRememberMe());
+    }
+
+    @Override
+    public boolean logout(String token) {
+        try {
+            // 从Redis中移除Token
+            String tokenKey = "user:token:" + token;
+            String refreshTokenKey = "user:refresh_token:" + token;
+
+            redisTemplate.delete(Arrays.asList(tokenKey, refreshTokenKey));
+
+            // 记录登出日志
+            log.info("用户登出成功，token: {}", token);
+            return true;
+        } catch (Exception e) {
+            log.error("用户登出失败", e);
+            return false;
+        }
+    }
+
+    @Override
+    public User getCurrentUser(String token) {
+        try {
+            // 从Redis获取用户ID
+            String tokenKey = "user:token:" + token;
+            String userIdStr = (String) redisTemplate.opsForValue().get(tokenKey);
+
+            if (StrUtil.isBlank(userIdStr)) {
+                return null;
+            }
+
+            Long userId = Long.parseLong(userIdStr);
+            // 使用MyBatis-Plus的getById方法
+            return this.getById(userId);
+        } catch (Exception e) {
+            log.error("获取当前用户失败", e);
+            return null;
+        }
+    }
+
+    /**
+     * 验证登录参数
+     */
+    private void validateLoginDTO(LoginDTO loginDTO) {
+        if (loginDTO == null) {
+            throw new BusinessException("登录参数不能为空");
+        }
+
+        if (StrUtil.isBlank(loginDTO.getEmail())) {
+            throw new BusinessException("邮箱不能为空");
+        }
+
+        if (StrUtil.isBlank(loginDTO.getPassword())) {
+            throw new BusinessException("密码不能为空");
+        }
+    }
+
+    /**
+     * 根据邮箱获取用户 - 使用MyBatis-Plus的getOne方法
+     */
+    private User getUserByEmail(String email) {
+        // 使用LambdaQueryWrapper构建查询条件
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail, email)
+                .eq(User::getDeleted, false); // 软删除过滤
+
+        // 使用getOne方法获取单个用户
+        User user = this.getOne(queryWrapper);
+
+        if (user == null) {
+            throw new BusinessException("邮箱或密码错误");
+        }
+
+        return user;
+    }
+
+    /**
+     * 验证账户状态
+     */
+    private void validateAccountStatus(User user) {
+        // 检查账户状态
+        if (user.getAccountStatus() == User.AccountStatus.DISABLED.getCode()) {
+            throw new BusinessException("账户已被禁用");
+        }
+
+        if (user.getAccountStatus() == User.AccountStatus.LOCKED.getCode()) {
+            throw new BusinessException("账户已被锁定，请联系管理员");
+        }
+
+        if (user.getAccountStatus() == User.AccountStatus.INACTIVE.getCode()) {
+            throw new BusinessException("账户未激活，请先验证邮箱");
+        }
+
+        // 检查临时锁定
+        if (user.getAccountLockedUntil() != null &&
+                user.getAccountLockedUntil().isAfter(LocalDateTime.now())) {
+            long minutes = java.time.Duration.between(LocalDateTime.now(), user.getAccountLockedUntil()).toMinutes();
+            throw new BusinessException("账户已被临时锁定，请" + minutes + "分钟后再试");
+        }
+
+        // 检查连续失败次数
+        if (user.getFailedLoginAttempts() >= maxLoginAttempts) {
+            // 使用MyBatis-Plus的update方法锁定账户
+            updateAccountLockStatus(user.getId(), User.AccountStatus.LOCKED.getCode(), lockMinutes);
+            throw new BusinessException("连续登录失败次数过多，账户已被锁定" + lockMinutes + "分钟");
+        }
+    }
+
+    /**
+     * 更新账户锁定状态 - 使用MyBatis-Plus的update方法
+     */
+    private boolean updateAccountLockStatus(Long userId, Integer status, Integer lockMinutes) {
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(User::getAccountStatus, status)
+                .set(User::getAccountLockedUntil, LocalDateTime.now().plusMinutes(lockMinutes))
+                .eq(User::getId, userId);
+
+        return this.update(updateWrapper);
+    }
+
+    /**
+     * 验证密码
+     */
+    private void validatePassword(User user, String password) {
+        // 使用Spring的DigestUtils进行MD5加密
+        String encryptedPassword = DigestUtils.md5DigestAsHex(password.getBytes());
+
+        System.out.println(encryptedPassword);
+
+        if (!encryptedPassword.equals(user.getPasswordHash())) {
+            // 使用MyBatis-Plus的update方法增加失败次数
+            incrementFailedLoginAttempts(user.getId());
+
+            int remainingAttempts = maxLoginAttempts - (user.getFailedLoginAttempts() + 1);
+            if (remainingAttempts > 0) {
+                throw new BusinessException("邮箱或密码错误，还有" + remainingAttempts + "次尝试机会");
+            } else {
+                throw new BusinessException("连续登录失败次数过多，账户已被锁定");
+            }
+        }
+
+        // 密码正确，重置失败次数
+        if (user.getFailedLoginAttempts() > 0) {
+            resetFailedLoginAttempts(user.getId());
+        }
+    }
+
+    /**
+     * 增加登录失败次数 - 使用MyBatis-Plus的update方法
+     */
+    private boolean incrementFailedLoginAttempts(Long userId) {
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.setSql("failed_login_attempts = failed_login_attempts + 1")
+                .eq(User::getId, userId);
+
+        return this.update(updateWrapper);
+    }
+
+    /**
+     * 重置登录失败次数 - 使用MyBatis-Plus的update方法
+     */
+    private boolean resetFailedLoginAttempts(Long userId) {
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(User::getFailedLoginAttempts, 0)
+                .set(User::getAccountLockedUntil, null)
+                .eq(User::getId, userId);
+
+        return this.update(updateWrapper);
+    }
+
+    /**
+     * 验证验证码
+     */
+    private void validateCaptcha(LoginDTO loginDTO) {
+        if (StrUtil.isNotBlank(loginDTO.getCaptcha()) &&
+                StrUtil.isNotBlank(loginDTO.getCaptchaKey())) {
+
+            String redisKey = "captcha:" + loginDTO.getCaptchaKey();
+            String correctCaptcha = (String) redisTemplate.opsForValue().get(redisKey);
+
+            if (StrUtil.isBlank(correctCaptcha)) {
+                throw new BusinessException("验证码已过期");
+            }
+
+            if (!loginDTO.getCaptcha().equalsIgnoreCase(correctCaptcha)) {
+                throw new BusinessException("验证码错误");
+            }
+
+            // 验证成功后删除验证码
+            redisTemplate.delete(redisKey);
+        }
+    }
+
+    /**
+     * 更新登录信息 - 使用MyBatis-Plus的updateById方法
+     */
+    private void updateLoginInfo(User user) {
+        String clientIp = getClientIp();
+
+        // 使用LambdaUpdateWrapper构建更新条件
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(User::getLastLoginTime, LocalDateTime.now())
+                .set(User::getLastLoginIp, clientIp)
+                .set(User::getLastActiveAt, LocalDateTime.now())
+                .setSql("login_count = login_count + 1")
+                .set(User::getFailedLoginAttempts, 0)
+                .set(User::getAccountLockedUntil, null)
+                .eq(User::getId, user.getId());
+
+        this.update(updateWrapper);
+
+        // 记录登录日志
+        logLogin(user.getId(), clientIp, true);
+    }
+
+    /**
+     * 生成访问令牌
+     */
+    private String generateToken(User user, Boolean rememberMe) {
+        String token = UUID.randomUUID().toString().replace("-", "");
+
+        // 存储到Redis
+        String tokenKey = "user:token:" + token;
+        long expireTime = Boolean.TRUE.equals(rememberMe) ? refreshTokenExpire : jwtExpire;
+
+        Map<String, Object> tokenData = new HashMap<>();
+        tokenData.put("userId", user.getId());
+        tokenData.put("username", user.getUsername());
+        tokenData.put("email", user.getEmail());
+        tokenData.put("loginTime", LocalDateTime.now().toString());
+
+        redisTemplate.opsForValue().set(tokenKey, user.getId().toString(), expireTime, TimeUnit.SECONDS);
+        redisTemplate.opsForHash().putAll("user:token:data:" + token, tokenData);
+        redisTemplate.expire("user:token:data:" + token, expireTime, TimeUnit.SECONDS);
+
+        return token;
+    }
+
+    /**
+     * 生成刷新令牌
+     */
+    private String generateRefreshToken(User user) {
+        String refreshToken = UUID.randomUUID().toString().replace("-", "");
+
+        String refreshTokenKey = "user:refresh_token:" + refreshToken;
+        redisTemplate.opsForValue().set(refreshTokenKey, user.getId().toString(),
+                refreshTokenExpire, TimeUnit.SECONDS);
+
+        return refreshToken;
+    }
+
+    /**
+     * 获取用户角色
+     */
+    private List<String> getUserRoles(Long userId) {
+        List<String> roles = new ArrayList<>();
+        roles.add("STUDENT");
+
+        // 使用MyBatis-Plus的getById方法获取用户
+        User user = this.getById(userId);
+        if (user != null && user.getLevel() >= 10) {
+            roles.add("VIP");
+        }
+
+        return roles;
+    }
+
+    /**
+     * 根据角色获取权限
+     */
+    private List<String> getPermissionsByRoles(List<String> roles) {
+        List<String> permissions = new ArrayList<>();
+        permissions.add("course:view");
+        permissions.add("course:enroll");
+
+        if (roles.contains("VIP")) {
+            permissions.add("course:download");
+            permissions.add("course:premium");
+        }
+
+        return permissions;
+    }
+
+    /**
+     * 构建登录结果
+     */
+    private LoginResultVO buildLoginResult(User user, String token, String refreshToken,
+                                           List<String> roles, List<String> permissions, Boolean rememberMe) {
+        LoginResultVO result = new LoginResultVO();
+        result.setToken(token);
+        result.setRefreshToken(refreshToken);
+        result.setTokenType("Bearer");
+        result.setExpiresIn(Boolean.TRUE.equals(rememberMe) ? refreshTokenExpire : jwtExpire);
+        result.setUser(UserVO.fromUser(user));
+        result.setRoles(roles);
+        result.setPermissions(permissions);
+
+        return result;
+    }
+
+    /**
+     * 获取客户端IP
+     */
+    private String getClientIp() {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && ip.length() > 0 && !"unknown".equalsIgnoreCase(ip)) {
+            int index = ip.indexOf(",");
+            if (index != -1) {
+                return ip.substring(0, index);
+            } else {
+                return ip;
+            }
+        }
+
+        ip = request.getHeader("X-Real-IP");
+        if (ip != null && ip.length() > 0 && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+
+        return request.getRemoteAddr();
+    }
+
+    /**
+     * 记录登录日志
+     */
+    private void logLogin(Long userId, String ip, boolean success) {
+        log.info("用户登录: userId={}, ip={}, success={}, time={}",
+                userId, ip, success, LocalDateTime.now());
+    }
+
+
+    public LoginResultVO refreshToken(String refreshToken) {
+        String refreshTokenKey = "user:refresh_token:" + refreshToken;
+        String userIdStr = (String) redisTemplate.opsForValue().get(refreshTokenKey);
+
+        if (StrUtil.isBlank(userIdStr)) {
+            throw new BusinessException("刷新令牌无效或已过期");
+        }
+
+        // 删除旧的刷新令牌
+        redisTemplate.delete(refreshTokenKey);
+
+        Long userId = Long.parseLong(userIdStr);
+        // 使用MyBatis-Plus的getById方法获取用户
+        User user = this.getById(userId);
+
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+
+        // 生成新的令牌
+        String newToken = generateToken(user, false);
+        String newRefreshToken = generateRefreshToken(user);
+
+        List<String> roles = getUserRoles(user.getId());
+        List<String> permissions = getPermissionsByRoles(roles);
+
+        return buildLoginResult(user, newToken, newRefreshToken, roles, permissions, false);
+    }
+
+    /**
+     * 批量更新用户最后活跃时间 - 示例方法
+     */
+    public boolean batchUpdateLastActiveTime(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return false;
+        }
+
+        // 使用MyBatis-Plus的update方法进行批量更新
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(User::getLastActiveAt, LocalDateTime.now())
+                .in(User::getId, userIds);
+
+        return this.update(updateWrapper);
+    }
+
+    /**
+     * 根据用户名或邮箱查询用户 - 示例方法
+     */
+    public User getUserByUsernameOrEmail(String account) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.and(wrapper -> wrapper
+                        .eq(User::getUsername, account)
+                        .or()
+                        .eq(User::getEmail, account))
+                .eq(User::getDeleted, false);
+
+        return this.getOne(queryWrapper);
+    }
+
+    /**
+     * 更新用户头像 - 示例方法
+     */
+    public boolean updateUserAvatar(Long userId, String avatarUrl) {
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(User::getAvatarUrl, avatarUrl)
+                .eq(User::getId, userId);
+
+        return this.update(updateWrapper);
+    }
+
+    /**
+     * 分页查询用户列表 - 示例方法
+     */
+    public List<User> getUsersByCondition(String keyword, Integer status, Integer minLevel) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+
+        // 条件判断
+        if (StrUtil.isNotBlank(keyword)) {
+            queryWrapper.and(wrapper -> wrapper
+                    .like(User::getUsername, keyword)
+                    .or()
+                    .like(User::getNickname, keyword)
+                    .or()
+                    .like(User::getEmail, keyword));
+        }
+
+        if (status != null) {
+            queryWrapper.eq(User::getAccountStatus, status);
+        }
+
+        if (minLevel != null) {
+            queryWrapper.ge(User::getLevel, minLevel);
+        }
+
+        queryWrapper.eq(User::getDeleted, false)
+                .orderByDesc(User::getCreatedAt);
+
+        return this.list(queryWrapper);
+    }
+
+    /**
+     * 统计用户数量 - 示例方法
+     */
+    public Map<String, Long> countUserStats() {
+        Map<String, Long> stats = new HashMap<>();
+
+        // 总用户数
+        LambdaQueryWrapper<User> totalWrapper = new LambdaQueryWrapper<>();
+        totalWrapper.eq(User::getDeleted, false);
+        stats.put("total", this.count(totalWrapper));
+
+        // 活跃用户数（今天登录过的）
+        LambdaQueryWrapper<User> activeWrapper = new LambdaQueryWrapper<>();
+        activeWrapper.ge(User::getLastLoginTime, LocalDateTime.now().minusDays(1))
+                .eq(User::getDeleted, false);
+        stats.put("active", this.count(activeWrapper));
+
+        // VIP用户数
+        LambdaQueryWrapper<User> vipWrapper = new LambdaQueryWrapper<>();
+        vipWrapper.ge(User::getLevel, 10)
+                .eq(User::getDeleted, false);
+        stats.put("vip", this.count(vipWrapper));
+
+        return stats;
+    }
+
+}

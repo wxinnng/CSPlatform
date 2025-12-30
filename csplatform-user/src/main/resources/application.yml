@@ -9,16 +9,32 @@ spring:
 
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
-    url: jdbc:mysql://localhost:3307/csplatform_file?characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3307/csplatform_user?characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true
     username: root
     password: wx
     # 关键修正：使用MySQL官方驱动类
     driver-class-name: com.mysql.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: wangxing
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+        shutdown-timeout: 100ms
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml  # XML映射文件位置
   type-aliases-package: com.example.entity      # 实体类所在包，用于别名简化
   configuration:
     map-underscore-to-camel-case: true          # 自动开启下划线到驼峰命名的映射
+
+
 feign:
   client:
     config:
