@@ -5,15 +5,21 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.csplatform.common.exception.BusinessException;
+import com.csplatform.common.utils.ChineseTrendyUsernameGenerator;
 import com.csplatform.user.entities.User;
 import com.csplatform.user.entities.dto.LoginDTO;
+import com.csplatform.user.entities.dto.RegisterDTO;
 import com.csplatform.user.entities.vo.LoginResultVO;
 import com.csplatform.user.entities.vo.LoginResultVO.UserVO;
+import com.csplatform.user.entities.vo.RegisterResultVO;
 import com.csplatform.user.mapper.UserMapper;
 import com.csplatform.user.service.UserService;
 import jakarta.annotation.Resource;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -54,6 +60,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     @Value("${login.lock-minutes:30}")
     private Integer lockMinutes;
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -125,6 +133,59 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             return null;
         }
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RegisterResultVO register(RegisterDTO registerDTO) {
+
+        //1.验证信息
+        if(registerDTO.getEmail() == null || registerDTO.getPassword() == null)
+            throw new BusinessException("账号密码不能为空！");
+
+        //2.判断是否已经注册过
+        isRegistered(registerDTO.getEmail());
+
+        //1. 插入用户信息
+        //1.1 生成加密后的密码
+        String encryptedPassword = DigestUtils.md5DigestAsHex(registerDTO.getPassword().getBytes());
+
+        //1.2 创建用户对象
+        //时间
+        LocalDateTime now = LocalDateTime.now();
+        User targetUser = new User()
+                .setEmail(registerDTO.getEmail())
+                .setPasswordHash(encryptedPassword)
+                .setCreatedAt(now)
+                .setUpdatedAt(now)
+                .setLastActiveAt(now)
+                .setUsername(ChineseTrendyUsernameGenerator.generateTrendyUsername());
+        //1.3 插入用户信息
+        int insert = userMapper.insert(targetUser);
+
+        if(insert < 1)
+            throw new BusinessException("服务器异常，请稍后再试！");
+
+        //2. 返回对象
+        return new RegisterResultVO().setId(targetUser.getId()).setEmail(targetUser.getEmail());
+
+    }
+
+    /**
+     * 检测邮箱是否已经被注册过
+     * @param email
+     */
+    private void isRegistered(@NotBlank(message = "邮箱不能为空") @Email(message = "邮箱格式不正确") String email) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail, email)
+                .eq(User::getDeleted, false); // 软删除过滤
+
+        // 使用getOne方法获取单个用户
+        User user = this.getOne(queryWrapper);
+
+        if (user != null)
+            throw new BusinessException("该邮箱已被注册，请直接登录。");
+    }
+
 
     /**
      * 验证登录参数
@@ -232,6 +293,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             resetFailedLoginAttempts(user.getId());
         }
     }
+
 
     /**
      * 增加登录失败次数 - 使用MyBatis-Plus的update方法

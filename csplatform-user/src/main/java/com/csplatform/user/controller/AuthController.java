@@ -12,7 +12,9 @@ import com.csplatform.common.exception.BusinessException;
 import com.csplatform.common.resp.Result;
 import com.csplatform.user.entities.User;
 import com.csplatform.user.entities.dto.LoginDTO;
+import com.csplatform.user.entities.dto.RegisterDTO;
 import com.csplatform.user.entities.vo.LoginResultVO;
+import com.csplatform.user.entities.vo.RegisterResultVO;
 import com.csplatform.user.service.UserService;
 
 import com.csplatform.user.service.impl.UserServiceImpl;
@@ -105,4 +107,21 @@ public class AuthController {
             return Result.fail("刷新令牌失败");
         }
     }
+
+    @PostMapping("/register")
+    public Result<RegisterResultVO> register(/*@Valid */@RequestBody RegisterDTO registerDTO){
+        try{
+            //注册操作
+            RegisterResultVO registerResultVO = userService.register(registerDTO);
+            //返回结果
+            return Result.success("注册成功",registerResultVO);
+        }catch (BusinessException e){
+            return Result.fail(e.getMessage());
+        }catch (Exception e){
+            log.info(e.getMessage());
+            return Result.fail("服务器异常，请稍后再试！");
+        }
+
+    }
+
 }
