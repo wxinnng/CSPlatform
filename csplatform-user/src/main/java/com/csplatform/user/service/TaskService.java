@@ -1,0 +1,37 @@
+package com.csplatform.user.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.csplatform.user.entities.Task;
+import com.csplatform.user.entities.User;
+
+import java.util.List;
+
+/**
+ * @Author WangXing
+ * @Date 2026/1/2 9:10
+ * @PackageName:com.csplatform.user.service
+ * @ClassName: TaskService
+ * @Version 1.0
+ */
+
+public interface TaskService extends IService<Task> {
+
+    /**
+     * 获得所有的用户任务
+     * @param id
+     * @return
+     */
+    List<Task> getAllTasksByUserId(Long id);
+
+    /**
+     * 单个完成任务
+     */
+    void finishOneTask(Long id);
+
+
+    /**
+     * 添加任务
+     * @param task
+     */
+    void addTaskByUserId(Task task);
+}
