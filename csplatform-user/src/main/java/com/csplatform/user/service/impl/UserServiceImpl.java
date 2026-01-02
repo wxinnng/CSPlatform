@@ -12,6 +12,7 @@ import com.csplatform.user.entities.dto.RegisterDTO;
 import com.csplatform.user.entities.vo.LoginResultVO;
 import com.csplatform.user.entities.vo.LoginResultVO.UserVO;
 import com.csplatform.user.entities.vo.RegisterResultVO;
+import com.csplatform.user.entities.vo.UserInfoVO;
 import com.csplatform.user.mapper.UserMapper;
 import com.csplatform.user.service.UserService;
 import jakarta.annotation.Resource;
@@ -132,6 +133,68 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             log.error("获取当前用户失败", e);
             return null;
         }
+    }
+
+    @Override
+    public UserInfoVO getUserInfoByEmail(String email) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail, email)
+                .eq(User::getDeleted, false); // 软删除过滤
+
+        // 使用getOne方法获取单个用户
+        User user = this.getOne(queryWrapper);
+
+        //返回对象
+        return new UserInfoVO().setId(user.getId())
+                .setPhone(user.getPhone())
+                .setAvatarUrl(user.getAvatarUrl())
+                .setUsername(user.getUsername())
+                .setGender(user.getGender())
+                .setRole(user.getRoles())
+                .setEmail(user.getEmail())
+                .setLearningLevel(user.getLearningLevel())
+                .setBackgroundUrl(user.getLinkedinUrl()) // 背景
+                .setCreateTime(user.getCreatedAt());
+
+    }
+
+    @Override
+    public void modifyUserInfo(UserInfoVO user) {
+
+        User user1 = new User();
+
+        //新建user对象
+        user1.setEmail(user.getEmail());
+        user1.setUsername(user.getUsername());
+        user1.setPasswordHash(DigestUtils.md5DigestAsHex(user.getPassword().getBytes()));
+        user1.setGender(user.getGender());
+        user1.setPhone(user.getPhone());
+        user1.setBirthday(user.getBirthday());
+        user1.setId(user.getId());
+
+//        System.out.println(user1);
+
+        int result = userMapper.updateBasicInfo(user1);
+        if(result < 1){
+            throw new BusinessException("更新失败，请稍后再试！");
+        }
+    }
+
+    @Override
+    public UserInfoVO getUserInfo(Long userId) {
+        //查询user对象
+        User user = userMapper.selectById(userId);
+        //返回对象
+        return new UserInfoVO().setId(userId)
+                .setPhone(user.getPhone())
+                .setAvatarUrl(user.getAvatarUrl())
+                .setUsername(user.getUsername())
+                .setGender(user.getGender())
+                .setRole(user.getRoles())
+                .setEmail(user.getEmail())
+                .setLearningLevel(user.getLearningLevel())
+                .setBackgroundUrl(user.getLinkedinUrl()) // 背景
+                .setCreateTime(user.getCreatedAt());
     }
 
     @Override

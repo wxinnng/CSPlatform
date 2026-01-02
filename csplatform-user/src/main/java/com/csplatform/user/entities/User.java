@@ -136,7 +136,7 @@ public class User extends Model<User> {
     @TableField("phone")
     private String phone;
 
-    @NotBlank(message = "密码不能为空")
+//    @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 100, message = "密码长度必须在6-100个字符之间")
     @JsonIgnore
     @TableField("password_hash")

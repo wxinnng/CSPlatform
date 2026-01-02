@@ -5,7 +5,7 @@ server:
 # ==========applicationName + druid-mysql8 driver===================
 spring:
   application:
-    name: csplatform-file-service
+    name: csplatform-user-service
 
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource

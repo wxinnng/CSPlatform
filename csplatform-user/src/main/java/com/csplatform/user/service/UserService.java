@@ -8,6 +8,7 @@ import com.csplatform.user.entities.dto.LoginDTO;
 import com.csplatform.user.entities.dto.RegisterDTO;
 import com.csplatform.user.entities.vo.LoginResultVO;
 import com.csplatform.user.entities.vo.RegisterResultVO;
+import com.csplatform.user.entities.vo.UserInfoVO;
 import jakarta.validation.Valid;
 
 /**
@@ -30,5 +31,24 @@ public interface UserService extends IService<User> {
      */
     User getCurrentUser(String token);
 
+    /**
+     * 用户注册
+     * @param registerDTO
+     * @return
+     */
     RegisterResultVO register(@Valid RegisterDTO registerDTO);
+
+
+    /**
+     * 获取用户信息
+     */
+    UserInfoVO getUserInfo(Long userId);
+
+    /**
+     * 修改用户信息
+     * @param user
+     */
+    void modifyUserInfo(@Valid UserInfoVO user);
+
+    UserInfoVO getUserInfoByEmail(String email);
 }

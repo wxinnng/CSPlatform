@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.csplatform.user.mapper.UserMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.csplatform.user.entities.User">
+        <!-- 保持之前的映射不变 -->
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        <!-- 保持之前的字段列表不变 -->
+    </sql>
+
+    <!-- 更新用户基础信息（动态更新非空字段） -->
+    <update id="updateBasicInfo">
+        UPDATE user
+        <set>
+            <if test="user.username != null and user.username != ''">
+                username = #{user.username},
+            </if>
+            <if test="user.nickname != null">
+                nickname = #{user.nickname},
+            </if>
+            <if test="user.realName != null">
+                real_name = #{user.realName},
+            </if>
+            <if test="user.gender != null">
+                gender = #{user.gender},
+            </if>
+            <if test="user.birthday != null">
+                birthday = #{user.birthday},
+            </if>
+            <if test="user.phone != null">
+                phone = #{user.phone},
+            </if>
+            <if test="user.country != null">
+                country = #{user.country},
+            </if>
+            <if test="user.province != null">
+                province = #{user.province},
+            </if>
+            <if test="user.city != null">
+                city = #{user.city},
+            </if>
+            <if test="user.address != null">
+                address = #{user.address},
+            </if>
+            <if test="user.postalCode != null">
+                postal_code = #{user.postalCode},
+            </if>
+            <if test="user.learningLevel != null">
+                learning_level = #{user.learningLevel},
+            </if>
+            <if test="user.occupation != null">
+                occupation = #{user.occupation},
+            </if>
+            <if test="user.learningGoal != null">
+                learning_goal = #{user.learningGoal},
+            </if>
+            <if test="user.bio != null">
+                bio = #{user.bio},
+            </if>
+            <if test="user.website != null">
+                website = #{user.website},
+            </if>
+            <if test="user.githubUrl != null">
+                github_url = #{user.githubUrl},
+            </if>
+            <if test="user.linkedinUrl != null">
+                linkedin_url = #{user.linkedinUrl},
+            </if>
+            <if test="user.avatarUrl != null">
+                avatar_url = #{user.avatarUrl},
+            </if>
+            <if test="user.email != null and user.email != ''">
+                email = #{user.email},
+            </if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{user.id}
+    </update>
+
+    <!-- 其他SQL语句保持不变 -->
+    <!-- 根据邮箱查询用户（忽略删除状态） -->
+    <select id="selectByEmailIgnoreDeleted" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM user
+        WHERE email = #{email}
+    </select>
+
+    <!-- 更新用户学习统计信息 -->
+    <update id="updateLearningStats">
+        UPDATE user
+        SET
+            total_learning_hours = total_learning_hours + #{hours},
+            completed_courses = completed_courses + #{completed},
+            ongoing_courses = ongoing_courses + #{ongoing},
+            certificates_count = certificates_count + #{certificates},
+            experience_points = experience_points + #{exp},
+            level = #{level},
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 更新用户登录信息 -->
+    <update id="updateLoginInfo">
+        UPDATE user
+        SET
+            last_login_time = NOW(),
+            last_login_ip = #{ip},
+            login_count = login_count + 1,
+            last_active_at = NOW(),
+            failed_login_attempts = 0,
+            account_locked_until = NULL
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 记录登录失败 -->
+    <update id="recordLoginFailure">
+        UPDATE user
+        SET
+        failed_login_attempts = failed_login_attempts + 1,
+        <if test="lockUntil != null">
+            account_locked_until = #{lockUntil},
+        </if>
+        updated_at = NOW()
+        WHERE email = #{email}
+    </update>
+
+    <!-- 更新用户密码 -->
+    <update id="updatePassword">
+        UPDATE user
+        SET
+            password_hash = #{passwordHash},
+            password_updated_at = NOW(),
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 验证邮箱 -->
+    <update id="verifyEmail">
+        UPDATE user
+        SET
+            email_verified = 1,
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 验证手机 -->
+    <update id="verifyPhone">
+        UPDATE user
+        SET
+            phone_verified = 1,
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 更新头像 -->
+    <update id="updateAvatar">
+        UPDATE user
+        SET
+            avatar_url = #{avatarUrl},
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 软删除用户 -->
+    <update id="softDelete">
+        UPDATE user
+        SET
+            deleted = 1,
+            deleted_at = NOW(),
+            account_status = 0,
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 恢复软删除的用户 -->
+    <update id="recoverDeleted">
+        UPDATE user
+        SET
+            deleted = 0,
+            deleted_at = NULL,
+            account_status = 1,
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 更新用户通知设置 -->
+    <update id="updateNotificationSettings">
+        UPDATE user
+        SET
+            email_notifications = #{emailNotifications},
+            sms_notifications = #{smsNotifications},
+            push_notifications = #{pushNotifications},
+            course_updates_notify = #{courseUpdatesNotify},
+            assignment_reminders = #{assignmentReminders},
+            newsletter_subscribed = #{newsletterSubscribed},
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <!-- 根据条件查询用户（分页） -->
+    <select id="selectUsersByCondition" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM user
+        WHERE deleted = 0
+        <if test="condition.username != null and condition.username != ''">
+            AND username LIKE CONCAT('%', #{condition.username}, '%')
+        </if>
+        <if test="condition.email != null and condition.email != ''">
+            AND email LIKE CONCAT('%', #{condition.email}, '%')
+        </if>
+        <if test="condition.phone != null and condition.phone != ''">
+            AND phone LIKE CONCAT('%', #{condition.phone}, '%')
+        </if>
+        <if test="condition.gender != null">
+            AND gender = #{condition.gender}
+        </if>
+        <if test="condition.accountStatus != null">
+            AND account_status = #{condition.accountStatus}
+        </if>
+        <if test="condition.minLevel != null">
+            AND level >= #{condition.minLevel}
+        </if>
+        <if test="condition.maxLevel != null">
+            AND level &lt;= #{condition.maxLevel}
+        </if>
+        <if test="condition.country != null and condition.country != ''">
+            AND country = #{condition.country}
+        </if>
+        <if test="condition.city != null and condition.city != ''">
+            AND city = #{condition.city}
+        </if>
+        ORDER BY ${condition.orderBy} ${condition.orderDirection}
+    </select>
+
+    <!-- 统计用户数据 -->
+    <select id="selectUserStatistics" resultType="map">
+        SELECT
+            COUNT(*) as totalUsers,
+            SUM(completed_courses) as totalCompletedCourses,
+            SUM(ongoing_courses) as totalOngoingCourses,
+            SUM(total_learning_hours) as totalLearningHours,
+            AVG(level) as averageLevel,
+            SUM(CASE WHEN gender = 1 THEN 1 ELSE 0 END) as maleCount,
+            SUM(CASE WHEN gender = 2 THEN 1 ELSE 0 END) as femaleCount
+        FROM user
+        WHERE deleted = 0
+    </select>
+
+    <!-- 批量更新用户状态 -->
+    <update id="batchUpdateAccountStatus">
+        UPDATE user
+        SET
+        account_status = #{status},
+        updated_at = NOW()
+        WHERE id IN
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+            #{userId}
+        </foreach>
+    </update>
+
+    <!-- 获取用户活跃度统计 -->
+    <select id="selectUserActivityStats" resultType="map">
+        SELECT
+            DATE(created_at) as date,
+            COUNT(*) as newUsers,
+            SUM(CASE WHEN last_active_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as activeUsers
+        FROM user
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+    </select>
+
+</mapper>
