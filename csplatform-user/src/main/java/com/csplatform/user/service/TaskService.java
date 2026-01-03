@@ -34,4 +34,16 @@ public interface TaskService extends IService<Task> {
      * @param task
      */
     void addTaskByUserId(Task task);
+
+    /**
+     * 删除任务
+     * @param id
+     */
+    void deleteById(Long id);
+
+    /**
+     * 完成任务
+     * @param id
+     */
+    void achieveTaskById(Long id);
 }

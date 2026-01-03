@@ -63,4 +63,39 @@ public class TaskController {
             return Result.fail("服务器异常，请稍后再试！");
         }
     }
+
+
+    /**
+     * 删除任务
+     */
+    @GetMapping("/delete/{id}")
+    public Result<String> deleteTaskById(@PathVariable("id") Long id){
+        log.info("删除ID:{} 的任务!",id);
+        try{
+            //删除操作
+            taskService.deleteById(id);
+            return Result.success("删除成功！");
+        }catch (BusinessException e){
+            return Result.fail(e.getMessage());
+        }catch (Exception e){
+            return Result.fail("服务器异常，请稍后再试！");
+        }
+    }
+
+
+    /**
+     * 完成任务
+     */
+    @GetMapping("/achieve/{id}")
+    public Result<String> achieveTaskById(@PathVariable("id") Long id){
+        log.info("完成任务：{}",id);
+        try{
+            taskService.achieveTaskById(id);
+            return Result.success("操作成功！");
+        }catch (BusinessException e){
+            return Result.fail(e.getMessage());
+        }catch (Exception e){
+            return Result.fail("服务器异常，请稍后再试！");
+        }
+    }
 }

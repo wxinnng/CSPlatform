@@ -1,6 +1,7 @@
 package com.csplatform.user.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.csplatform.common.exception.BusinessException;
@@ -44,6 +45,25 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements Ta
                 .orderByAsc("start_time");
 
         return taskMapper.selectList(queryWrapper);
+    }
+
+    @Override
+    public void achieveTaskById(Long id) {
+
+        UpdateWrapper<Task> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", id)
+                .setSql("is_completed = NOT is_completed");
+
+        int result = taskMapper.update(null, updateWrapper);
+        if (result < 1)
+            throw new BusinessException("操作错误！");
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        int result = taskMapper.deleteById(id);
+        if(result < 1)
+            throw new BusinessException("删除失败，请稍后再试！");
     }
 
     @Override
