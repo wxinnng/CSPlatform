@@ -12,7 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @Version 1.0
  */
 @SpringBootApplication
-@MapperScan
+@MapperScan("com.csplatform.file.mapper")
 public class CSPlatformFileSpringBootApplication {
     public static void main(String[] args) {
         SpringApplication.run(CSPlatformFileSpringBootApplication.class, args);

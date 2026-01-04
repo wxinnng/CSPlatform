@@ -1,16 +1,16 @@
 package com.csplatform.file.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.csplatform.file.entities.User;
+import com.csplatform.file.entities.FileInfo;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
  * @Author WangXing
- * @Date 2025/12/28 12:54
+ * @Date 2026/1/3 17:24
  * @PackageName:com.csplatform.file.mapper
- * @ClassName: UserMapper
+ * @ClassName: FileMapper
  * @Version 1.0
  */
 @Mapper
-public interface UserMapper extends BaseMapper<User> {
+public interface FileMapper extends BaseMapper<FileInfo> {
 }
