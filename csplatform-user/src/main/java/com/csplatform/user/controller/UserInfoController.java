@@ -24,12 +24,8 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class UserInfoController {
 
-
-
     @Autowired
     private UserService userService;
-    @Autowired
-    private UserMapper userMapper;
 
     /**
      * 获得用户信息

@@ -32,6 +32,8 @@ import java.util.Map;
 @TableName("user")
 public class User extends Model<User> {
 
+    private String backgroundUrl;
+
     /**
      * 账户状态枚举
      */
@@ -142,13 +144,6 @@ public class User extends Model<User> {
     @TableField("password_hash")
     private String passwordHash;
 
-    @Size(max = 50, message = "昵称长度不能超过50个字符")
-    @TableField("nickname")
-    private String nickname;
-
-    @Size(max = 50, message = "真实姓名长度不能超过50个字符")
-    @TableField("real_name")
-    private String realName;
 
     @TableField("avatar_url")
     private String avatarUrl;
@@ -160,82 +155,23 @@ public class User extends Model<User> {
     @TableField("birthday")
     private LocalDate birthday;
 
-    @Size(max = 50, message = "国家名称长度不能超过50个字符")
-    @TableField("country")
-    private String country;
-
-    @Size(max = 50, message = "省份名称长度不能超过50个字符")
-    @TableField("province")
-    private String province;
-
-    @Size(max = 50, message = "城市名称长度不能超过50个字符")
-    @TableField("city")
-    private String city;
-
-    @Size(max = 200, message = "地址长度不能超过200个字符")
-    @TableField("address")
-    private String address;
-
-    @TableField("postal_code")
-    private String postalCode;
-
     // 学习相关字段
     @TableField("learning_level")
     private String learningLevel;
 
-    @Size(max = 50, message = "职业长度不能超过50个字符")
-    @TableField("occupation")
-    private String occupation;
-
-    @TableField("learning_goal")
-    private String learningGoal;
 
     @Size(max = 500, message = "个人简介长度不能超过500个字符")
     @TableField("bio")
     private String bio;
 
-    @TableField("website")
-    private String website;
-
-    @TableField("github_url")
-    private String githubUrl;
-
-    @TableField("linkedin_url")
-    private String linkedinUrl;
-
     // 账户状态
     @TableField("account_status")
     private Integer accountStatus = AccountStatus.NORMAL.getCode();
 
-    @TableField("email_verified")
-    private Boolean emailVerified = false;
-
-    @TableField("phone_verified")
-    private Boolean phoneVerified = false;
-
-    @JsonIgnore
-    @TableField("verification_code")
-    private String verificationCode;
-
-    @JsonIgnore
-    @TableField("verification_expire")
-    private LocalDateTime verificationExpire;
 
     // 安全相关
     @TableField("last_login_time")
     private LocalDateTime lastLoginTime;
-
-    @TableField("last_login_ip")
-    private String lastLoginIp;
-
-    @TableField("login_count")
-    private Integer loginCount = 0;
-
-    @TableField("failed_login_attempts")
-    private Integer failedLoginAttempts = 0;
-
-    @TableField("account_locked_until")
-    private LocalDateTime accountLockedUntil;
 
     // 学习统计
     @TableField("total_learning_hours")
@@ -247,33 +183,18 @@ public class User extends Model<User> {
     @TableField("ongoing_courses")
     private Integer ongoingCourses = 0;
 
-    @TableField("certificates_count")
-    private Integer certificatesCount = 0;
-
-    @TableField("experience_points")
-    private Integer experiencePoints = 0;
-
     @TableField("level")
     private Integer level = 1;
 
-    // 通知设置
-    @TableField("email_notifications")
-    private Boolean emailNotifications = true;
+    //文件相关
+    @TableField("total_size")
+    private Double totalSize;
 
-    @TableField("sms_notifications")
-    private Boolean smsNotifications = true;
+    @TableField("used_size")
+    private Double usedSize;
 
-    @TableField("push_notifications")
-    private Boolean pushNotifications = true;
 
-    @TableField("course_updates_notify")
-    private Boolean courseUpdatesNotify = true;
 
-    @TableField("assignment_reminders")
-    private Boolean assignmentReminders = true;
-
-    @TableField("newsletter_subscribed")
-    private Boolean newsletterSubscribed = true;
 
     // 时间戳
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -284,17 +205,7 @@ public class User extends Model<User> {
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
 
-    @TableField("last_active_at")
-    private LocalDateTime lastActiveAt;
 
-    @TableField("password_updated_at")
-    private LocalDateTime passwordUpdatedAt;
-
-    @TableField("terms_accepted_at")
-    private LocalDateTime termsAcceptedAt;
-
-    @TableField("privacy_accepted_at")
-    private LocalDateTime privacyAcceptedAt;
 
     // 软删除
     @TableField("deleted")
@@ -313,6 +224,8 @@ public class User extends Model<User> {
 
     @TableField(exist = false)
     private Map<String, Object> preferences; // 用户偏好设置
+
+
 
     /**
      * 获取性别描述
@@ -344,28 +257,5 @@ public class User extends Model<User> {
     public boolean isAccountEnabled() {
         return this.accountStatus == AccountStatus.NORMAL.getCode()
                 && !Boolean.TRUE.equals(this.deleted);
-    }
-
-    /**
-     * 是否需要验证邮箱
-     */
-    public boolean isEmailVerificationRequired() {
-        return !Boolean.TRUE.equals(this.emailVerified)
-                && this.accountStatus == AccountStatus.INACTIVE.getCode();
-    }
-
-    /**
-     * 账户是否被锁定
-     */
-    public boolean isAccountLocked() {
-        if (this.accountStatus == AccountStatus.LOCKED.getCode()) {
-            return true;
-        }
-
-        if (this.accountLockedUntil != null) {
-            return this.accountLockedUntil.isAfter(LocalDateTime.now());
-        }
-
-        return false;
     }
 }

@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.csplatform.common.exception.BusinessException;
+import com.csplatform.common.resp.Result;
 import com.csplatform.common.utils.ChineseTrendyUsernameGenerator;
+import com.csplatform.user.api.FileService;
 import com.csplatform.user.entities.User;
 import com.csplatform.user.entities.dto.LoginDTO;
 import com.csplatform.user.entities.dto.RegisterDTO;
@@ -56,13 +58,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Value("${jwt.refresh-expire:604800}")
     private Long refreshTokenExpire;
 
-    @Value("${login.max-attempts:5}")
-    private Integer maxLoginAttempts;
-
-    @Value("${login.lock-minutes:30}")
-    private Integer lockMinutes;
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private FileService fileService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -82,8 +82,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         // 5. 验证验证码（如果开启）
         validateCaptcha(loginDTO);
 
-        // 6. 更新登录信息 - 使用MyBatis-Plus的updateById方法
-        updateLoginInfo(user);
 
         // 7. 生成Token
         String token = generateToken(user, loginDTO.getRememberMe());
@@ -153,7 +151,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
                 .setRole(user.getRoles())
                 .setEmail(user.getEmail())
                 .setLearningLevel(user.getLearningLevel())
-                .setBackgroundUrl(user.getLinkedinUrl()) // 背景
+                .setBackgroundUrl(user.getBackgroundUrl()) // 背景
                 .setCreateTime(user.getCreatedAt());
 
     }
@@ -193,7 +191,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
                 .setRole(user.getRoles())
                 .setEmail(user.getEmail())
                 .setLearningLevel(user.getLearningLevel())
-                .setBackgroundUrl(user.getLinkedinUrl()) // 背景
+                .setBackgroundUrl(user.getBackgroundUrl()) // 背景
                 .setCreateTime(user.getCreatedAt());
     }
 
@@ -220,13 +218,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
                 .setPasswordHash(encryptedPassword)
                 .setCreatedAt(now)
                 .setUpdatedAt(now)
-                .setLastActiveAt(now)
                 .setUsername(ChineseTrendyUsernameGenerator.generateTrendyUsername());
         //1.3 插入用户信息
         int insert = userMapper.insert(targetUser);
 
         if(insert < 1)
             throw new BusinessException("服务器异常，请稍后再试！");
+
+
+        //1.4远程调用
+        Result<String> result = fileService.initFileRoot(targetUser.getId());
+        if(result.getCode() != 200)
+            throw new BusinessException("用户初始化错误！");
 
         //2. 返回对象
         return new RegisterResultVO().setId(targetUser.getId()).setEmail(targetUser.getEmail());
@@ -303,19 +306,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             throw new BusinessException("账户未激活，请先验证邮箱");
         }
 
-        // 检查临时锁定
-        if (user.getAccountLockedUntil() != null &&
-                user.getAccountLockedUntil().isAfter(LocalDateTime.now())) {
-            long minutes = java.time.Duration.between(LocalDateTime.now(), user.getAccountLockedUntil()).toMinutes();
-            throw new BusinessException("账户已被临时锁定，请" + minutes + "分钟后再试");
-        }
-
-        // 检查连续失败次数
-        if (user.getFailedLoginAttempts() >= maxLoginAttempts) {
-            // 使用MyBatis-Plus的update方法锁定账户
-            updateAccountLockStatus(user.getId(), User.AccountStatus.LOCKED.getCode(), lockMinutes);
-            throw new BusinessException("连续登录失败次数过多，账户已被锁定" + lockMinutes + "分钟");
-        }
     }
 
     /**
@@ -324,7 +314,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     private boolean updateAccountLockStatus(Long userId, Integer status, Integer lockMinutes) {
         LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.set(User::getAccountStatus, status)
-                .set(User::getAccountLockedUntil, LocalDateTime.now().plusMinutes(lockMinutes))
                 .eq(User::getId, userId);
 
         return this.update(updateWrapper);
@@ -338,23 +327,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         String encryptedPassword = DigestUtils.md5DigestAsHex(password.getBytes());
 
         System.out.println(encryptedPassword);
-
-        if (!encryptedPassword.equals(user.getPasswordHash())) {
-            // 使用MyBatis-Plus的update方法增加失败次数
-            incrementFailedLoginAttempts(user.getId());
-
-            int remainingAttempts = maxLoginAttempts - (user.getFailedLoginAttempts() + 1);
-            if (remainingAttempts > 0) {
-                throw new BusinessException("邮箱或密码错误，还有" + remainingAttempts + "次尝试机会");
-            } else {
-                throw new BusinessException("连续登录失败次数过多，账户已被锁定");
-            }
-        }
-
-        // 密码正确，重置失败次数
-        if (user.getFailedLoginAttempts() > 0) {
-            resetFailedLoginAttempts(user.getId());
-        }
     }
 
 
@@ -374,8 +346,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
      */
     private boolean resetFailedLoginAttempts(Long userId) {
         LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.set(User::getFailedLoginAttempts, 0)
-                .set(User::getAccountLockedUntil, null)
+        updateWrapper
                 .eq(User::getId, userId);
 
         return this.update(updateWrapper);
@@ -404,27 +375,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         }
     }
 
-    /**
-     * 更新登录信息 - 使用MyBatis-Plus的updateById方法
-     */
-    private void updateLoginInfo(User user) {
-        String clientIp = getClientIp();
-
-        // 使用LambdaUpdateWrapper构建更新条件
-        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.set(User::getLastLoginTime, LocalDateTime.now())
-                .set(User::getLastLoginIp, clientIp)
-                .set(User::getLastActiveAt, LocalDateTime.now())
-                .setSql("login_count = login_count + 1")
-                .set(User::getFailedLoginAttempts, 0)
-                .set(User::getAccountLockedUntil, null)
-                .eq(User::getId, user.getId());
-
-        this.update(updateWrapper);
-
-        // 记录登录日志
-        logLogin(user.getId(), clientIp, true);
-    }
 
     /**
      * 生成访问令牌
@@ -572,22 +522,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     /**
-     * 批量更新用户最后活跃时间 - 示例方法
-     */
-    public boolean batchUpdateLastActiveTime(List<Long> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            return false;
-        }
-
-        // 使用MyBatis-Plus的update方法进行批量更新
-        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.set(User::getLastActiveAt, LocalDateTime.now())
-                .in(User::getId, userIds);
-
-        return this.update(updateWrapper);
-    }
-
-    /**
      * 根据用户名或邮箱查询用户 - 示例方法
      */
     public User getUserByUsernameOrEmail(String account) {
@@ -622,8 +556,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         if (StrUtil.isNotBlank(keyword)) {
             queryWrapper.and(wrapper -> wrapper
                     .like(User::getUsername, keyword)
-                    .or()
-                    .like(User::getNickname, keyword)
                     .or()
                     .like(User::getEmail, keyword));
         }

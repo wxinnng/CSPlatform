@@ -136,14 +136,11 @@ public class LoginResultVO {
                     .setId(user.getId())
                     .setUsername(user.getUsername())
                     .setEmail(user.getEmail())
-                    .setNickname(user.getNickname())
-                    .setRealName(user.getRealName())
                     .setAvatarUrl(user.getAvatarUrl())
                     .setPhone(user.getPhone())
                     .setAccountStatus(user.getAccountStatus())
                     .setAccountStatusDesc(user.getAccountStatusDesc())
                     .setLevel(user.getLevel())
-                    .setExperiencePoints(user.getExperiencePoints())
                     .setTotalLearningHours(user.getTotalLearningHours())
                     .setCompletedCourses(user.getCompletedCourses());
         }
