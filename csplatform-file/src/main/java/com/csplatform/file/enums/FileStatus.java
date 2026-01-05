@@ -9,7 +9,7 @@ package com.csplatform.file.enums;
 public enum FileStatus {
     TRANSFER(0,"转码中"),
     TRANSFER_FAIL(1,"转码失败"),
-    USING(2,"使用中");
+    USING(3,"使用中");
     private Integer status;
     private String desc;
     FileStatus(Integer status,String desc){

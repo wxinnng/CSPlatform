@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.csplatform.common.exception.BusinessException;
+import com.csplatform.file.entities.vo.FolderVO;
 import com.csplatform.file.enums.FileCategoryEnums;
 import com.csplatform.file.enums.FileDelFlagEnums;
 import com.csplatform.file.constant.MessageConstant;
 import com.csplatform.file.entities.FileInfo;
 import com.csplatform.file.entities.vo.FileVO;
+import com.csplatform.file.enums.FileStatus;
 import com.csplatform.file.enums.UploadStatus;
 import com.csplatform.file.mapper.FileMapper;
 import com.csplatform.file.service.FileService;
@@ -25,10 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -76,7 +75,6 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
             throw new BusinessException("文件上传异常");
 
         FileInfo insertItem = new FileInfo();
-//        Date now = new Date();
         LocalDateTime now = LocalDateTime.now();
         HashMap<Object, Object> map = new HashMap<>();
 
@@ -115,10 +113,6 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
                 map.put("fileId", insertItem.getFileId());
                 return map;
             }
-
-            // 插入第一个切片计数
-            redisUtil.set(fileVO.getFileMd5(), fileVO.getChunkNumber());
-            log.info("Redis设置MD5键: {} = {}", fileVO.getFileMd5(), fileVO.getChunkNumber());
         }
 
         // 检查Redis中是否有这个MD5的键
@@ -126,7 +120,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         if (redisValue == null) {
             // 如果Redis中没有，可能是第一次上传但chunkNumber != 1，或者Redis键过期
             // 重新设置并继续上传
-            redisUtil.set(fileVO.getFileMd5(), 0);
+            redisUtil.set(fileVO.getFileMd5(), 1);
             log.warn("Redis中未找到MD5键: {}，重新设置为0", fileVO.getFileMd5());
         } else {
             // 检查分片是否已上传
@@ -138,6 +132,8 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
                 map.put("status", UploadStatus.UPLOADING.getStatus());
                 return map;
             }
+            //没有上传，更新
+            redisUtil.set(fileVO.getFileMd5(), fileVO.getChunkNumber());
         }
 
         // 只有一段，直接上传
@@ -260,7 +256,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public List<FileInfo> getRootFolderByUserId(Long id) {
+    public FolderVO getRootFolderByUserId(Long id) {
         //TODO:先查询是否有这个用户
 
         //查询root
@@ -284,6 +280,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
             fileInfo.setFilePid("0");
             fileInfo.setState(3);
             fileInfo.setDelFlag(2);
+            fileInfo.setFileMd5(StringUtil.getRandomString(20));
 
             int insert = fileInfoMapper.insert(fileInfo);
             if(insert < 0)
@@ -295,8 +292,14 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
 
         queryWrapper1.eq(FileInfo::getFilePid,fileInfo.getFileId()).orderBy(true,true,FileInfo::getCreateTime);
 
-        //查询内容
-        return fileInfoMapper.selectList(queryWrapper1);
+        FolderVO folderVO = new FolderVO();
+
+        //封装信息
+        folderVO.setChildren(fileInfoMapper.selectList(queryWrapper1));
+        folderVO.setFolderInfo(fileInfo);
+
+        //返回信息
+        return folderVO;
     }
 
     @Override
@@ -305,6 +308,55 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         if(fileInfo == null)
             throw new BusinessException("参数错误！");
         return fileInfo;
+    }
+
+    @Override
+    public void initFileRoot(Long id) {
+        //初始化文件目录
+        initRoot(id);
+    }
+
+    /**
+     * 初始化root
+     * @param id
+     */
+    private void initRoot(Long id){
+        //创建一个对象
+        FileInfo fileInfo = new FileInfo();
+
+        //创建一个目录
+        fileInfo.setUserId(id);
+        fileInfo.setCreateTime(LocalDateTime.now());
+        fileInfo.setFileCategory(FileCategoryEnums.FOLDER.getCategory());
+        fileInfo.setFilePid("0");
+        fileInfo.setState(3);
+        fileInfo.setDelFlag(2);
+        fileInfo.setFileId(StringUtil.getRandomString(10));
+        fileInfo.setFileMd5(StringUtil.getRandomString(20));
+        fileInfo.setFileSize(0L);
+
+        int insert = fileInfoMapper.insert(fileInfo);
+        if(insert < 0)
+            throw  new BusinessException("初始化错误！");
+    }
+
+    @Override
+    public void newFolder(FileInfo folder) {
+        //完善信息
+        if(folder == null)
+            throw new BusinessException("参数错误！");
+        folder.setFileMd5(UUID.randomUUID().toString());
+        folder.setFileId(StringUtil.getRandomString(10));
+        folder.setDelFlag(FileDelFlagEnums.USING.getFlag());
+        folder.setFileCategory(FileCategoryEnums.FOLDER.getCategory());
+        folder.setState(FileStatus.USING.getStatus());
+        folder.setCreateTime(LocalDateTime.now());
+
+        //插入
+        int result = fileInfoMapper.insert(folder);
+
+        if(result < 1)
+            throw new BusinessException("操作失败，请稍后再试！");
     }
 
     @Override
