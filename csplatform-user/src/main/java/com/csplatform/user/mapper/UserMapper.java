@@ -78,4 +78,8 @@ public interface UserMapper extends BaseMapper<User> {
 
     // 获取用户活跃度统计
     List<Map<String, Object>> selectUserActivityStats();
+
+    //获得空间使用情况
+    Map<String, Long> getSizeInfo(@Param("id") Long id);
+
 }

@@ -11,7 +11,9 @@
     <sql id="Base_Column_List">
         <!-- 保持之前的字段列表不变 -->
     </sql>
-
+    <select id="getSizeInfo" resultType="map">
+        SELECT total_size, used_size FROM user WHERE id = #{id}
+    </select>
     <!-- 更新用户基础信息（动态更新非空字段） -->
     <update id="updateBasicInfo">
         UPDATE user

@@ -59,4 +59,10 @@ public class FileVO {
     @TableField(exist = false)
     private List<FileInfo> children;
 
+    /**
+     * 总大小
+     */
+    @TableField(exist = false)
+    private Long totalSize;
+
 }

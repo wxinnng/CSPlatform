@@ -2,8 +2,10 @@ package com.csplatform.file.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.csplatform.common.exception.BusinessException;
+import com.csplatform.file.api.UserService;
 import com.csplatform.file.entities.vo.FolderVO;
 import com.csplatform.file.enums.FileCategoryEnums;
 import com.csplatform.file.enums.FileDelFlagEnums;
@@ -47,6 +49,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
 
     @Autowired
     private MinioUtils minioUtils;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private ThreadPoolTaskExecutor executor;
@@ -109,31 +114,12 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
                 fileInfoMapper.insert(insertItem);
                 log.info("秒传文件插入成功: {}", insertItem);
 
+                afterLoadFile(fileVO);
+
                 map.put("status", UploadStatus.UPLOAD_FINISH.getStatus());
                 map.put("fileId", insertItem.getFileId());
                 return map;
             }
-        }
-
-        // 检查Redis中是否有这个MD5的键
-        Object redisValue = redisUtil.get(fileVO.getFileMd5());
-        if (redisValue == null) {
-            // 如果Redis中没有，可能是第一次上传但chunkNumber != 1，或者Redis键过期
-            // 重新设置并继续上传
-            redisUtil.set(fileVO.getFileMd5(), 1);
-            log.warn("Redis中未找到MD5键: {}，重新设置为0", fileVO.getFileMd5());
-        } else {
-            // 检查分片是否已上传
-            int uploadedChunkCount = Integer.parseInt(redisValue.toString());
-            if(uploadedChunkCount >= fileVO.getChunkNumber()){
-                // 说明这片文件已经上传过了
-                log.info("分片已上传: MD5={}, chunk={}, redis={}",
-                        fileVO.getFileMd5(), fileVO.getChunkNumber(), uploadedChunkCount);
-                map.put("status", UploadStatus.UPLOADING.getStatus());
-                return map;
-            }
-            //没有上传，更新
-            redisUtil.set(fileVO.getFileMd5(), fileVO.getChunkNumber());
         }
 
         // 只有一段，直接上传
@@ -174,7 +160,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
                     }
                 }
             });
-
+            //多线程：
+            //循环更新文件大小
+            afterLoadFile(fileVO);
             // 删除redis中的键
             redisUtil.del(fileVO.getFileMd5());
             map.put("status", UploadStatus.UPLOAD_FINISH.getStatus());
@@ -182,6 +170,28 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
 
             return map;
         }
+
+        // 检查Redis中是否有这个MD5的键
+        Object redisValue = redisUtil.get(fileVO.getFileMd5());
+        if (redisValue == null) {
+            // 如果Redis中没有，可能是第一次上传但chunkNumber != 1，或者Redis键过期
+            // 重新设置并继续上传
+            redisUtil.set(fileVO.getFileMd5(), 1);
+            log.warn("Redis中未找到MD5键: {}，重新设置为0", fileVO.getFileMd5());
+        } else {
+            // 检查分片是否已上传
+            int uploadedChunkCount = Integer.parseInt(redisValue.toString());
+            if(uploadedChunkCount >= fileVO.getChunkNumber()){
+                // 说明这片文件已经上传过了
+                log.info("分片已上传: MD5={}, chunk={}, redis={}",
+                        fileVO.getFileMd5(), fileVO.getChunkNumber(), uploadedChunkCount);
+                map.put("status", UploadStatus.UPLOADING.getStatus());
+                return map;
+            }
+            //没有上传，更新
+            redisUtil.set(fileVO.getFileMd5(), fileVO.getChunkNumber());
+        }
+
 
         // 分片上传
         log.info("分片上传: MD5={}, chunk={}/{}, fileName={}",
@@ -238,6 +248,10 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
                 log.warn("临时文件清理失败", e);
             }
 
+            //多线程：
+            //循环更新文件大小
+            afterLoadFile(fileVO);
+
             // 删除Redis键
             redisUtil.del(fileVO.getFileMd5());
 
@@ -254,10 +268,48 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         return map;
     }
 
+
+    /**
+     * 上传文件后执行的后置操作
+     * @param fileVO
+     */
+    private void afterLoadFile(FileVO fileVO) {
+        // 异步更新文件占用空间（循环更新父目录）
+        executor.execute(() -> {
+            String pid = fileVO.getFilePid();
+            Long totalSize = fileVO.getTotalSize();
+            LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+
+            // 循环更新所有父目录的大小，直到根目录（pid=0）
+            while (pid != null && !"0".equals(pid)) {
+                // 设置更新条件：file_size = file_size + totalSize
+                updateWrapper.setSql("file_size = file_size + " + totalSize)
+                        .eq(FileInfo::getFileId, pid);
+
+                // 执行更新
+                fileInfoMapper.update(null, updateWrapper);
+
+                // 获取当前目录的父目录ID，继续向上更新
+                FileInfo currentDir = fileInfoMapper.selectById(pid);
+                if (currentDir != null) {
+                    pid = currentDir.getFilePid();
+                } else {
+                    break;
+                }
+
+                // 清空wrapper以便下次使用
+                updateWrapper.clear();
+            }
+        });
+
+        // 异步更新用户总使用空间
+        executor.execute(() -> {
+            userService.updateUserFileSpace(fileVO.getUserId(), fileVO.getTotalSize());
+        });
+    }
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FolderVO getRootFolderByUserId(Long id) {
-        //TODO:先查询是否有这个用户
 
         //查询root
         LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
@@ -334,6 +386,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         fileInfo.setFileId(StringUtil.getRandomString(10));
         fileInfo.setFileMd5(StringUtil.getRandomString(20));
         fileInfo.setFileSize(0L);
+        fileInfo.setFileName("root");
 
         int insert = fileInfoMapper.insert(fileInfo);
         if(insert < 0)

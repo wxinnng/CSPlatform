@@ -102,13 +102,13 @@ public class FileInfoController {
     @GetMapping("/init_file_root")
     public Result<String> initFileRoot(@RequestParam("id") Long id){
         log.info("初始化用户根目录");
-//        try{
+        try{
             fileService.initFileRoot(id);
             return Result.success("新建文件夹成功");
-//        }catch (BusinessException e){
-//            return Result.fail(e.getMessage());
-//        }catch (Exception e){
-//            return Result.fail("服务器异常！");
-//        }
+        }catch (BusinessException e){
+            return Result.fail(e.getMessage());
+        }catch (Exception e){
+            return Result.fail("服务器异常！");
+        }
     }
 }

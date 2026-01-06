@@ -11,6 +11,8 @@ import com.csplatform.user.entities.vo.RegisterResultVO;
 import com.csplatform.user.entities.vo.UserInfoVO;
 import jakarta.validation.Valid;
 
+import java.util.Map;
+
 /**
  * 简化的用户服务接口
  */
@@ -51,4 +53,18 @@ public interface UserService extends IService<User> {
     void modifyUserInfo(@Valid UserInfoVO user);
 
     UserInfoVO getUserInfoByEmail(String email);
+
+    /**
+     * 获得用户文件信息
+     * @param userId
+     * @return
+     */
+    Map<String, Long> getUserFileSpace(Long userId);
+
+    /**
+     * 更新用户文件空间
+     * @param userId
+     * @param size
+     */
+    void updateUserFileSpace(Long userId, Long size);
 }

@@ -134,6 +134,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     @Override
+    public void updateUserFileSpace(Long userId, Long size) {
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper
+                .setSql("used_size = used_size + " + size)
+                .eq(User::getId, userId);
+        int update = userMapper.update(null, updateWrapper);
+        if(update < 1)
+            throw new BusinessException("更新失败！");
+    }
+
+    @Override
+    public Map<String, Long> getUserFileSpace(Long userId) {
+        return userMapper.getSizeInfo(userId);
+    }
+
+    @Override
     public UserInfoVO getUserInfoByEmail(String email) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getEmail, email)
@@ -218,7 +234,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
                 .setPasswordHash(encryptedPassword)
                 .setCreatedAt(now)
                 .setUpdatedAt(now)
-                .setUsername(ChineseTrendyUsernameGenerator.generateTrendyUsername());
+                .setUsername(ChineseTrendyUsernameGenerator.generateTrendyUsername())
+                .setTotalSize(10d)
+                .setTotalSize(0d);
         //1.3 插入用户信息
         int insert = userMapper.insert(targetUser);
 

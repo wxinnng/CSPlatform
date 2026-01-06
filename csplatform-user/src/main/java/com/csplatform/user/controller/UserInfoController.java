@@ -1,5 +1,6 @@
 package com.csplatform.user.controller;
 
+import cn.hutool.log.Log;
 import com.csplatform.common.exception.BusinessException;
 import com.csplatform.common.resp.Result;
 import com.csplatform.user.entities.User;
@@ -11,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * @Author WangXing
@@ -74,4 +77,43 @@ public class UserInfoController {
         }
     }
 
+    /**
+     * 更新用户文件空间
+     * @param userId
+     * @param size
+     * @return
+     */
+    @GetMapping("/updateFileSpace")
+    Result<String> updateUserFileSpace(@RequestParam("userId") Long userId,@RequestParam("size") Long size){
+        log.info("更新用户空间");
+        try{
+            userService.updateUserFileSpace(userId,size);
+            return Result.success("OK");
+        }catch (BusinessException e){
+            return Result.fail(e.getMessage());
+        }catch (Exception e){
+            e.printStackTrace();
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 获得用户空间使用情况
+     */
+    @GetMapping("/getAllAndUsedSpace")
+    Result<Map<String,Long>> getAllAndUsedSpace(@RequestParam("userId")Long userId){
+        log.info("获得用户网盘空间,用户:{}",userId);
+        try{
+            Map<String, Long> result = userService.getUserFileSpace(userId);
+            return Result.success(result);
+        }catch (BusinessException e){
+            return Result.fail(e.getMessage());
+        }catch (Exception e){
+            e.printStackTrace();
+            return Result.fail(e.getMessage());
+        }
+    }
+
 }
+
+

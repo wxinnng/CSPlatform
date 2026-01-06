@@ -59,7 +59,9 @@ public class UploadController {
             @RequestParam("fileName") String fileName,
             @RequestParam("fileMd5") String fileMd5,
             @RequestParam("userId") Long userId,
-            @RequestParam("filePid") String filePid) throws ExecutionException, InterruptedException {
+            @RequestParam("filePid") String filePid,
+            @RequestParam("totalSize") Long totalSize
+    ) throws ExecutionException, InterruptedException {
 
         // 创建FileVO对象
         FileVO fileInfo = new FileVO();
@@ -70,6 +72,7 @@ public class UploadController {
         fileInfo.setFileMd5(fileMd5);
         fileInfo.setUserId(userId);
         fileInfo.setFilePid(filePid);
+        fileInfo.setTotalSize(totalSize);
 
         log.info("分片上传文件 {}", fileMd5);
         return Result.success(fileService.uploadFile(fileInfo));

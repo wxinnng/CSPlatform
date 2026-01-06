@@ -3,6 +3,7 @@ package com.csplatform.file;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * @Author WangXing
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @Version 1.0
  */
 @SpringBootApplication
+@EnableFeignClients
 @MapperScan("com.csplatform.file.mapper")
 public class CSPlatformFileSpringBootApplication {
     public static void main(String[] args) {
