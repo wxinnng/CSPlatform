@@ -3,6 +3,7 @@ package com.csplatform.file.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.csplatform.common.exception.BusinessException;
 import com.csplatform.file.api.UserService;
@@ -25,13 +26,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * @Author WangXing
@@ -176,7 +181,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         if (redisValue == null) {
             // 如果Redis中没有，可能是第一次上传但chunkNumber != 1，或者Redis键过期
             // 重新设置并继续上传
-            redisUtil.set(fileVO.getFileMd5(), 1);
+            redisUtil.set(fileVO.getFileMd5(), 0);
             log.warn("Redis中未找到MD5键: {}，重新设置为0", fileVO.getFileMd5());
         } else {
             // 检查分片是否已上传
@@ -307,6 +312,8 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
             userService.updateUserFileSpace(fileVO.getUserId(), fileVO.getTotalSize());
         });
     }
+
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FolderVO getRootFolderByUserId(Long id) {
@@ -315,6 +322,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.
                 eq(FileInfo::getUserId,id)
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.USING.getFlag())
                 .eq(FileInfo::getFilePid,"0");
 
         //查询
@@ -342,7 +350,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         //拿到根目录ID
         LambdaQueryWrapper<FileInfo> queryWrapper1 = new LambdaQueryWrapper<>();
 
-        queryWrapper1.eq(FileInfo::getFilePid,fileInfo.getFileId()).orderBy(true,true,FileInfo::getCreateTime);
+        queryWrapper1.eq(FileInfo::getFilePid,fileInfo.getFileId())
+                .eq(FileInfo::getDelFlag,FileDelFlagEnums.USING.getFlag())
+                .orderBy(true,true,FileInfo::getCreateTime);
 
         FolderVO folderVO = new FolderVO();
 
@@ -366,6 +376,391 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
     public void initFileRoot(Long id) {
         //初始化文件目录
         initRoot(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void restoreFiles(List<String> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return;
+        }
+
+
+        for (String id : ids) {
+            // 1. 查询要恢复的文件/文件夹
+            FileInfo fileInfo = fileInfoMapper.selectById(id);
+            if (fileInfo == null) {
+                throw new BusinessException("文件不存在: " + id);
+            }
+
+            // 2. 检查文件是否在回收站
+            if (!Objects.equals(fileInfo.getDelFlag(), FileDelFlagEnums.RECYCLE.getFlag())) {
+                throw new BusinessException("文件不在回收站: " + fileInfo.getFileName());
+            }
+
+            Long userId = fileInfo.getUserId();
+
+            // 3. 检查父文件夹状态
+            String parentId = fileInfo.getFilePid();
+            FileInfo parentFolder = null;
+
+            LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+            LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+
+
+
+            // 如果不是根目录，查询父文件夹
+            while (!"0".equals(parentId)) {
+
+                //查询用户父文件夹信息
+                queryWrapper.eq(FileInfo::getDelFlag,FileDelFlagEnums.USING.getFlag())
+                        .eq(FileInfo::getFileId,parentId);
+                parentFolder = fileInfoMapper.selectOne(queryWrapper);
+
+                //清空
+                queryWrapper.clear();
+
+                //如果父文件夹已经不存在了
+                if(! Objects.equals(parentFolder.getDelFlag(),FileDelFlagEnums.USING.getFlag())){
+                    //root作为父文件夹,执行update语句
+                    //1.查询根目录，用户ID查询：userId和filePid == ‘0’
+                    LambdaQueryWrapper<FileInfo> rootQuery = new LambdaQueryWrapper<>();
+                    rootQuery.eq(FileInfo::getUserId, userId)
+                            .eq(FileInfo::getFilePid, "0")
+                            .eq(FileInfo::getDelFlag, FileDelFlagEnums.USING.getFlag())
+                            .last("LIMIT 1");
+                    FileInfo rootFolder = fileInfoMapper.selectOne(rootQuery);
+
+                    //2.设置为当前目录的父文件夹(update语句)
+                    updateWrapper.set(FileInfo::getFilePid, rootFolder.getFileId())
+                            .eq(FileInfo::getFileId, fileInfo.getFileId());
+
+                    int result = fileInfoMapper.update(null, updateWrapper);
+                    if (result == 0) {
+                        throw new BusinessException("更新文件父目录失败");
+                    }
+
+                    //3.把设置为根目录
+                    parentFolder.setFileId(rootFolder.getFileId());
+                }
+
+                //更新父目录大小，加
+                updateWrapper.setSql("file_size = file_size + " + fileInfo.getFileSize())
+                        .eq(FileInfo::getFileId, parentFolder.getFileId());
+                fileInfoMapper.update(updateWrapper);
+
+                //清空
+                updateWrapper.clear();
+
+                parentId = parentFolder.getFilePid();
+            }
+
+            if (Objects.equals(fileInfo.getFileCategory(), FileCategoryEnums.FOLDER.getCategory())) {
+                restoreFolderRecursive(fileInfo, fileInfo.getFilePid());
+            } else {
+                // 恢复单个文件
+                restoreSingleFile(fileInfo, fileInfo.getFilePid());
+            }
+        }
+    }
+
+    /**
+     * 恢复单个文件
+     */
+    private void restoreSingleFile(FileInfo fileInfo, String newParentId) {
+        Long fileSize = 0L;
+        // 更新文件状态
+        LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(FileInfo::getDelFlag, FileDelFlagEnums.USING.getFlag())
+                .set(FileInfo::getFilePid, newParentId)
+                .eq(FileInfo::getFileId, fileInfo.getFileId())
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.RECYCLE.getFlag());
+
+        int result = fileInfoMapper.update(null, updateWrapper);
+        if (result == 0) {
+            throw new BusinessException("文件恢复失败: " + fileInfo.getFileName());
+        }
+
+
+    }
+
+    /**
+     * 递归恢复文件夹及其内容
+     */
+    private void restoreFolderRecursive(FileInfo folderInfo, String newParentId) {
+
+        // 1. 先恢复当前文件夹
+        restoreSingleFile(folderInfo, newParentId);
+
+        // 2. 查找文件夹下的所有子项
+        LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(FileInfo::getFilePid, folderInfo.getFileId())
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.RECYCLE.getFlag());
+
+        List<FileInfo> children = fileInfoMapper.selectList(queryWrapper);
+
+        // 3. 递归恢复子项
+        for (FileInfo child : children) {
+            if (Objects.equals(child.getFileCategory(), FileCategoryEnums.FOLDER.getCategory())) {
+                // 子文件夹：递归恢复
+                restoreFolderRecursive(child, folderInfo.getFileId());
+            } else {
+                // 文件：直接恢复
+                restoreSingleFile(child, folderInfo.getFileId());
+            }
+        }
+    }
+
+    /**
+     * 更新父文件夹大小
+     */
+    private void updateParentFolderSize(String fileId, Long size) {
+        if (StringUtils.isBlank(fileId) || "0".equals(fileId) || size == null || size == 0) {
+            return;
+        }
+
+        FileInfo parentFolder = fileInfoMapper.selectById(fileId);
+        if (parentFolder == null ||
+                !Objects.equals(parentFolder.getFileCategory(), FileCategoryEnums.FOLDER.getCategory())) {
+            return;
+        }
+
+        // 更新文件夹大小
+        Long newSize = (parentFolder.getFileSize() != null ? parentFolder.getFileSize() : 0L) + size;
+        LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(FileInfo::getFileSize, newSize)
+                .eq(FileInfo::getFileId, fileId);
+
+        fileInfoMapper.update(null, updateWrapper);
+
+        // 递归向上更新
+        updateParentFolderSize(parentFolder.getFilePid(), size);
+    }
+
+
+    @Override
+    public List<FileInfo> getRecycleFolder(String id) {
+        // 1. 首先查询回收站中的所有文件和文件夹
+        LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(FileInfo::getFilePid, id)
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.RECYCLE.getFlag())
+                .orderByDesc(FileInfo::getCreateTime);
+
+        return fileInfoMapper.selectList(queryWrapper);
+    }
+
+    @Override
+    public void deleteFilesBatch(List<String> ids) {
+        //1.总大小
+        Long totalSize = 0L;
+
+        Map<String, Long> stringLongMap = new HashMap<>();
+
+        for (String id : ids) {
+            stringLongMap = deleteFiles(id);
+            totalSize += stringLongMap.get("size");
+        }
+
+
+        // 使用总大小
+        log.info("总共释放空间：" + totalSize + " 字节");
+
+        userService.updateUserFileSpace(stringLongMap.get("userId"),totalSize * (-1));
+
+    }
+
+    @Override
+    public List<FileInfo> getRecycleFiles(Long userId) {
+        // 1. 首先查询回收站中的所有文件和文件夹
+        LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(FileInfo::getUserId, userId)
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.RECYCLE.getFlag())
+                .orderByDesc(FileInfo::getCreateTime);
+
+        List<FileInfo> allRecycled = fileInfoMapper.selectList(queryWrapper);
+
+        // 2. 收集所有文件夹的ID
+        Set<String> folderIds = allRecycled.stream()
+                .filter(file -> file.getFileCategory() == 4) // 4 表示文件夹
+                .map(FileInfo::getFileId)
+                .collect(Collectors.toSet());
+
+        // 3. 过滤掉那些父文件夹也在回收站中的文件
+        List<FileInfo> result = allRecycled.stream()
+                .filter(file -> {
+                    // 如果是文件夹，总是显示
+                    if (file.getFileCategory() == 4) {
+                        return true;
+                    }
+
+                    // 如果是文件，检查其父文件夹是否也在回收站中
+                    // 如果父文件夹不在回收站中，则显示这个文件
+                    return !folderIds.contains(file.getFilePid());
+                })
+                .collect(Collectors.toList());
+
+        return result;
+    }
+
+    /**
+     * 删除文件,相关操作
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String,Long> deleteFiles(String id) {
+
+        Map<String,Long> result = new HashMap<>();
+
+        // 1. 查找要回收的文件/文件夹
+        FileInfo fileInfo = fileInfoMapper.selectById(id);
+
+        if (fileInfo == null) {
+            throw new BusinessException("文件不存在");
+        }
+        result.put("userId",fileInfo.getUserId());
+
+        // 2. 判断是否是文件夹
+        if (fileInfo.getFileCategory() == 4) {
+            // 文件夹：递归回收文件夹及其所有内容
+            result.put("size",deleteFolderRecursive(fileInfo));
+        } else {
+            result.put("size",deleteSingleFile(fileInfo));
+        }
+
+        return result;
+    }
+    private Long deleteSingleFile(FileInfo fileInfo) {
+
+        Long size = 0L;
+
+        LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(FileInfo::getDelFlag, FileDelFlagEnums.DEL.getFlag())
+                .eq(FileInfo::getFileId, fileInfo.getFileId())
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.RECYCLE.getFlag()); // 防止重复回收
+
+        //为了回收重复，只回收文件，不回收文件夹
+        if(!Objects.equals(fileInfo.getFileCategory(), FileCategoryEnums.FOLDER.getCategory())){
+            size = fileInfo.getFileSize();
+        }
+
+        int result = fileInfoMapper.update(null, updateWrapper);
+        if (result == 0) {
+            throw new BusinessException("文件已被删除");
+        }
+        return size;
+    }
+    private Long deleteFolderRecursive(FileInfo fileInfo) {
+
+        Long size = 0L;
+
+        // 1. 先回收当前文件夹
+        deleteSingleFile(fileInfo);
+
+        // 2. 查找文件夹下的所有文件和子文件夹
+        LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(FileInfo::getFilePid, fileInfo.getFilePid())
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.RECYCLE.getFlag()); // 只处理未删除的
+
+        List<FileInfo> children = fileInfoMapper.selectList(queryWrapper);
+
+        // 3. 递归处理每个子项
+        for (FileInfo child : children) {
+            if (child.getFileCategory() == 4) {
+                // 子文件夹：递归回收
+                size += deleteFolderRecursive(fileInfo);
+            } else {
+                // 文件：直接回收
+                size += deleteSingleFile(fileInfo);
+            }
+        }
+        return size;
+    }
+
+
+    /**
+     * 递归回收文件夹及其所有内容
+     */
+    @Override
+    public void recycleFiles(List<String> ids) {
+        //调用回收文件的方法
+        ids.forEach(this::recycleFile);
+    }
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recycleFile(String id) {
+        // 1. 查找要回收的文件/文件夹
+        FileInfo fileInfo = fileInfoMapper.selectById(id);
+        if (fileInfo == null) {
+            throw new BusinessException("文件不存在");
+        }
+
+        // 2. 判断是否是文件夹
+        if (fileInfo.getFileCategory() == 4) {
+            // 文件夹：递归回收文件夹及其所有内容
+            recycleFolderRecursive(id);
+        } else {
+            // 文件：直接设置删除标志
+            recycleSingleFile(id);
+        }
+        LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+
+        String pid = fileInfo.getFilePid();
+
+        // 循环更新所有父目录的大小，直到根目录（pid=0）
+        while (pid != null && !"0".equals(pid)) {
+            // 设置更新条件：file_size = file_size + totalSize
+            updateWrapper.setSql("file_size = file_size - " + fileInfo.getFileSize())
+                    .eq(FileInfo::getFileId, pid);
+
+            // 执行更新
+            fileInfoMapper.update(null, updateWrapper);
+
+            // 获取当前目录的父目录ID，继续向上更新
+            FileInfo currentDir = fileInfoMapper.selectById(pid);
+            if (currentDir != null) {
+                pid = currentDir.getFilePid();
+            } else {
+                break;
+            }
+
+            // 清空wrapper以便下次使用
+            updateWrapper.clear();
+        }
+    }
+    private void recycleFolderRecursive(String folderId) {
+        // 1. 先回收当前文件夹
+        recycleSingleFile(folderId);
+
+        // 2. 查找文件夹下的所有文件和子文件夹
+        LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(FileInfo::getFilePid, folderId)
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.USING.getFlag()); // 只处理未删除的
+
+        List<FileInfo> children = fileInfoMapper.selectList(queryWrapper);
+
+        // 3. 递归处理每个子项
+        for (FileInfo child : children) {
+            if (child.getFileCategory() == 4) {
+                // 子文件夹：递归回收
+                recycleFolderRecursive(child.getFileId());
+            } else {
+                // 文件：直接回收
+                recycleSingleFile(child.getFileId());
+            }
+        }
+    }
+    /**
+     * 回收单个文件（设置del_flag=1）
+     */
+    private void recycleSingleFile(String fileId) {
+        LambdaUpdateWrapper<FileInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(FileInfo::getDelFlag, 1)
+                .eq(FileInfo::getFileId, fileId)
+                .eq(FileInfo::getDelFlag, FileDelFlagEnums.USING.getFlag()); // 防止重复回收
+
+        int result = fileInfoMapper.update(null, updateWrapper);
+        if (result == 0) {
+            throw new BusinessException("文件回收失败，可能已被删除");
+        }
     }
 
     /**
@@ -414,19 +809,20 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
 
     @Override
     public List<FileInfo> getFolderById(String id) {
+
         //先查询是否有这个父目录
         FileInfo fileInfo = fileInfoMapper.selectById(id);
 
         if(fileInfo == null)
             throw new BusinessException("参数错误！");
+
         //构造wrapper
         LambdaQueryWrapper<FileInfo> fileInfoLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        fileInfoLambdaQueryWrapper.eq(FileInfo::getFilePid,id).orderBy(true,true,FileInfo::getCreateTime);
-
-        //查询出所有内容
-        List<FileInfo> fileInfos = fileInfoMapper.selectList(fileInfoLambdaQueryWrapper);
+        fileInfoLambdaQueryWrapper.eq(FileInfo::getFilePid,id)
+                .eq(FileInfo::getDelFlag,FileDelFlagEnums.USING.getFlag())
+                .orderBy(true,true,FileInfo::getCreateTime);
 
         //返回对象
-        return fileInfos;
+        return fileInfoMapper.selectList(fileInfoLambdaQueryWrapper);
     }
 }

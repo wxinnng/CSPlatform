@@ -65,4 +65,42 @@ public interface FileService {
      * @param id
      */
     void initFileRoot(Long id);
+
+    /**
+     * 回收文件
+     * @param id
+     */
+    void recycleFile(String id);
+
+    /**
+     * 回收文件s
+     * @param ids
+     */
+    void recycleFiles(List<String> ids);
+
+    /**
+     * 获得回收站文件s
+     * @param userId
+     * @return
+     */
+    List<FileInfo> getRecycleFiles(Long userId);
+
+    /**
+     * 批量删除文件
+     * @param ids
+     */
+    void deleteFilesBatch(List<String> ids);
+
+    /**
+     * 通过folderId获得回收文件夹信息
+     * @param id
+     * @return
+     */
+    List<FileInfo> getRecycleFolder(String id);
+
+    /**
+     * 复原文件
+     * @param ids
+     */
+    void restoreFiles(List<String> ids);
 }

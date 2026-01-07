@@ -111,4 +111,69 @@ public class FileInfoController {
             return Result.fail("服务器异常！");
         }
     }
+
+    /**
+     * 回收单个
+     */
+    @GetMapping("/recycle_file/{id}")
+    public Result<String> recycleFile(@PathVariable("id")String id){
+        //回收文件或文件夹
+        log.info("回收ID:{}",id);
+        fileService.recycleFile(id);
+        return Result.success("OK");
+    }
+
+    /**
+     * 回收多个文件
+     */
+    @PostMapping("/recycle_files")
+    public Result<String> recycleFiles(@RequestBody List<String> ids){
+        //回收文件s
+        log.info("文件IDS:{}",ids);
+        fileService.recycleFiles(ids);
+        return Result.success("OK");
+    }
+
+
+    /**
+     * 获得回收站里的文件
+     */
+    @GetMapping("/get_recycle_files")
+    public Result<List<FileInfo>> getRecycleFiles(@RequestParam("userId") Long userId){
+        log.info("获得用户：{}的回收站",userId);
+        List<FileInfo> files =  fileService.getRecycleFiles(userId);
+        return Result.success(files);
+    }
+
+
+    /**
+     * 通过folderID获得回收文件
+     */
+    @GetMapping("/get_recycle_folder")
+    public Result<List<FileInfo>> getRecycleFilesByFolderId(@RequestParam("id") String id){
+        log.info("回收文件夹id:{}",id);
+        List<FileInfo> folder = fileService.getRecycleFolder(id);
+        return Result.success(folder);
+    }
+
+
+    /**
+     * 彻底删除文件
+     */
+    @PostMapping("/delete_file")
+    public Result<String> deleteFile(@RequestBody List<String> ids){
+        log.info("删除的文件：{}",ids);
+        fileService.deleteFilesBatch(ids);
+        return Result.success("OK");
+    }
+
+    /**
+     * 复原
+     */
+    @PostMapping("/restore_file")
+    public Result<String> restoreFile(@RequestBody List<String> ids){
+        log.info("复原文件：{}",ids);
+        fileService.restoreFiles(ids);
+        return Result.success("OK");
+    }
 }
