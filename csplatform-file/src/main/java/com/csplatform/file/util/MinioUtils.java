@@ -123,26 +123,34 @@ public class MinioUtils {
     public List<Object> getFileList(String bucketName, boolean recursive) {
         if (StringUtils.isEmpty(bucketName)) {
             throw new BusinessException("操作错误");
-
         }
+
         List<Object> items = new ArrayList<>();
         try {
-            Iterable<Result<Item>> myObjects = minioClient.listObjects(ListObjectsArgs.builder().bucket(bucketName).prefix("/2022-08-03/4674a894-abaf-48cb-9ea9-40a4e8560af9/Desktop").recursive(recursive).build());
-            Iterator<Result<Item>> iterator = myObjects.iterator();
+            Iterable<Result<Item>> myObjects = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucketName)
+                            .prefix("/2022-08-03/4674a894-abaf-48cb-9ea9-40a4e8560af9/Desktop")
+                            .recursive(recursive)
+                            .build());
+
             String format = "{'fileName':'%s','fileSize':'%s'}";
-            for (Result<Item> myObject : myObjects) {
-                System.out.println(myObject.get().objectName());
-            }
-            while (iterator.hasNext()) {
-                Item item = iterator.next().get();
+
+            boolean firstItem = true;
+            for (Result<Item> result : myObjects) {
+                // 跳过第一个项目而不是先添加再删除
+                if (firstItem) {
+                    firstItem = false;
+                    continue;
+                }
+
+                Item item = result.get();
                 items.add(JSON.parse(String.format(format, item.objectName(), formatFileSize(item.size()))));
-//                items.add(JSON.parse(String.format(format, "/".concat("test").concat("/").concat(item.objectName()), formatFileSize(item.size()))));
             }
+
         } catch (Exception e) {
-            e.printStackTrace();
-            log.info(e.getMessage());
+            log.error("获取文件列表失败: {}", e.getMessage(), e);
         }
-        items.remove(0);
         return items;
     }
     /**

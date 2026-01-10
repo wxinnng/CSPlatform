@@ -2,9 +2,9 @@ package com.csplatform.user.api;
 
 import com.csplatform.common.resp.Result;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * @Author WangXing
@@ -19,6 +19,13 @@ public interface FileService {
     /**
      * 初始化root
      */
-    @GetMapping("/info/init_file_root")
+    @PostMapping("/info/init_file_root")
     public Result<String> initFileRoot(@RequestParam("id") Long id); // 正确：显式指定参数名为"id"
+
+
+    /**
+     * 上传头像
+     */
+    @PostMapping(value = "/upload/upload_small_file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    Result<String> uploadSmallFile(@RequestPart("file") MultipartFile file);
 }

@@ -57,6 +57,7 @@ public class FileInfoController {
         }catch (BusinessException e){
             return Result.fail(e.getMessage());
         }catch (Exception e){
+            e.printStackTrace();
             return Result.fail("服务器异常！");
         }
 

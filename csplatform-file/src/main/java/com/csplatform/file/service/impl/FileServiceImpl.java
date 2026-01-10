@@ -16,6 +16,7 @@ import com.csplatform.file.entities.vo.FileVO;
 import com.csplatform.file.enums.FileStatus;
 import com.csplatform.file.enums.UploadStatus;
 import com.csplatform.file.mapper.FileMapper;
+import com.csplatform.file.properties.MinioPropertie;
 import com.csplatform.file.service.FileService;
 import com.csplatform.file.util.MinioUtils;
 import com.csplatform.file.util.RedisUtil;
@@ -56,6 +57,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
     private MinioUtils minioUtils;
 
     @Autowired
+    private MinioPropertie minioProperties;
+
+    @Autowired
     private UserService userService;
 
     @Autowired
@@ -64,8 +68,27 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
     @Resource
     private RedisUtil redisUtil;
     @Override
-    public void uploadSmallFile(MultipartFile file, FileInfo fileInfo) {
+    public String uploadSmallFile(MultipartFile file, FileInfo fileInfo) {
 
+        if(file == null)
+            throw new BusinessException("文件为空！");
+
+        //最终返回的path
+        String url = minioProperties.getEndpoint();
+
+        //使用minio上传文件
+        String path = minioUtils.uploadFile(minioProperties.getBucketName(), Objects.requireNonNull(file.getOriginalFilename()), file);
+
+        if(fileInfo != null){
+            //TODO:把信息写入数据库
+
+        }
+
+        url = url + "/" + path;
+
+        log.info("文件url : {}", url);
+
+        return url;
     }
 
     /**
@@ -267,7 +290,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         }
 
         // 更新Redis中的上传进度
-        redisUtil.incrby(fileVO.getFileMd5(), 1);
+        redisUtil.set(fileVO.getFileMd5(), fileVO.getChunkNumber());
         map.put("status", UploadStatus.UPLOADING.getStatus());
 
         return map;
@@ -341,6 +364,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
             fileInfo.setState(3);
             fileInfo.setDelFlag(2);
             fileInfo.setFileMd5(StringUtil.getRandomString(20));
+            fileInfo.setFileId(StringUtil.getRandomString(10));
 
             int insert = fileInfoMapper.insert(fileInfo);
             if(insert < 0)

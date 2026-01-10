@@ -22,7 +22,7 @@ public interface FileService {
     /**
      * 上传小文件（不用分配）
      */
-    void uploadSmallFile(MultipartFile file, FileInfo fileInfo);
+    String uploadSmallFile(MultipartFile file, FileInfo fileInfo);
 
     /**
      * 分片上传
