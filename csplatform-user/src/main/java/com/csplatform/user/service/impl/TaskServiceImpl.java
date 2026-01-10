@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @Author WangXing
@@ -46,6 +46,18 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements Ta
 
         return taskMapper.selectList(queryWrapper);
     }
+
+    /**
+     * 获取最近一年的热力图数据（前端需要的格式）
+     */
+    public List<Map<String, Object>> getRecentYearHeatmapDataByTaskCount(Long userId) {
+
+        List<Map<String,Object>> result = null;
+        //1.TODO:加入缓存，从redis中拿
+        return taskMapper.findHeatmapDataByTaskCount(userId);
+    }
+
+
 
     @Override
     public void achieveTaskById(Long id) {

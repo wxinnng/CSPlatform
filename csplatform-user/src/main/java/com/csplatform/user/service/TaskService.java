@@ -5,6 +5,7 @@ import com.csplatform.user.entities.Task;
 import com.csplatform.user.entities.User;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Author WangXing
@@ -46,4 +47,12 @@ public interface TaskService extends IService<Task> {
      * @param id
      */
     void achieveTaskById(Long id);
+
+    /**
+     * 热力图数据
+     * @param userId
+     * @return
+     */
+    List<Map<String, Object>> getRecentYearHeatmapDataByTaskCount(Long userId);
+
 }

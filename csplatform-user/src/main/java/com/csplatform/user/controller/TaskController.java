@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Author WangXing
@@ -97,5 +98,18 @@ public class TaskController {
         }catch (Exception e){
             return Result.fail("服务器异常，请稍后再试！");
         }
+    }
+    /**
+     * 获取用户热力图数据（按任务数量）
+     */
+    @GetMapping("/heatmap")
+    public Result<List<Map<String, Object>>> getHeatmapData(@RequestParam("userId") Long userId) {
+//        try {
+            List<Map<String, Object>> heatmapData = taskService.getRecentYearHeatmapDataByTaskCount(userId);
+            return Result.success(heatmapData);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return Result.fail("获取热力图数据失败: " + e.getMessage());
+//        }
     }
 }

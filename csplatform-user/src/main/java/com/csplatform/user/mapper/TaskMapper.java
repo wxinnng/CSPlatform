@@ -24,6 +24,7 @@ import org.apache.ibatis.annotations.Options;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 任务 Mapper 接口
@@ -87,4 +88,15 @@ public interface TaskMapper extends BaseMapper<Task> {
      */
     @Select("UPDATE tasks SET is_deleted = 1, updated_at = NOW() WHERE id = #{id} AND user_id = #{userId}")
     int softDelete(@Param("id") Long id, @Param("userId") Long userId);
+
+
+    /**
+     * 查询用户最近一年每天完成任务数量（热力图数据格式）
+     * 返回格式: [{date: 时间戳, value: 任务数量}]
+     */
+    List<Map<String, Object>> findHeatmapDataByTaskCount(@Param("userId") Long userId);
+
+
+
+
 }

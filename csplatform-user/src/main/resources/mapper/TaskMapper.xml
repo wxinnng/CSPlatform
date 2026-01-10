@@ -133,4 +133,26 @@
         <if test="priority != null">AND priority = #{priority}</if>
     </select>
 
+
+    <select id="findHeatmapDataByTaskCount" resultType="java.util.HashMap">
+    <![CDATA[
+        WITH RECURSIVE date_range AS (
+            SELECT CURDATE() - INTERVAL 364 DAY AS date_value
+        UNION ALL
+        SELECT date_value + INTERVAL 1 DAY
+        FROM date_range
+        WHERE date_value < CURDATE()
+            )
+        SELECT
+            UNIX_TIMESTAMP(dr.date_value) * 1000 as timestamp,
+        COALESCE(COUNT(t.id), 0) as value
+        FROM date_range dr
+            LEFT JOIN tasks t ON dr.date_value = DATE(t.created_at)
+            AND t.user_id = #{userId}
+            AND t.is_completed = 1
+            AND t.created_at >= CURDATE() - INTERVAL 1 YEAR
+        GROUP BY dr.date_value
+        ORDER BY dr.date_value ASC
+        ]]>
+</select>
 </mapper>
