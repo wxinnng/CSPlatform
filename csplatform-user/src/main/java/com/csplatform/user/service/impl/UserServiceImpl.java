@@ -28,6 +28,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -145,6 +146,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     @Override
+    public void updateUserAvatar(Long id, MultipartFile file) {
+        //1.调远程服务，上传头像
+        Result<String> result = fileService.uploadSmallFile(file);
+
+        //2.更新用户信息
+        if(result.getCode() != 200){
+            throw new BusinessException("头像更新失败，请稍后再试！");
+        }
+        userMapper.updateAvatar(id,result.getData());
+    }
+
+    @Override
     public Map<String, Long> getUserFileSpace(Long userId) {
         return userMapper.getSizeInfo(userId);
     }
@@ -186,7 +199,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         user1.setBirthday(user.getBirthday());
         user1.setId(user.getId());
 
-//        System.out.println(user1);
 
         int result = userMapper.updateBasicInfo(user1);
         if(result < 1){

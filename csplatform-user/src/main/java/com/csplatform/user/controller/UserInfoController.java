@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -73,6 +74,7 @@ public class UserInfoController {
         }catch (BusinessException e){
             return Result.fail(e.getMessage());
         }catch (Exception e){
+            e.printStackTrace();
             return Result.fail("服务器异常，请稍后再试！");
         }
     }
@@ -101,7 +103,7 @@ public class UserInfoController {
      * 获得用户空间使用情况
      */
     @GetMapping("/getAllAndUsedSpace")
-    Result<Map<String,Long>> getAllAndUsedSpace(@RequestParam("userId")Long userId){
+    public Result<Map<String,Long>> getAllAndUsedSpace(@RequestParam("userId")Long userId){
         log.info("获得用户网盘空间,用户:{}",userId);
         try{
             Map<String, Long> result = userService.getUserFileSpace(userId);
@@ -112,6 +114,17 @@ public class UserInfoController {
             e.printStackTrace();
             return Result.fail(e.getMessage());
         }
+    }
+
+
+    /**
+     * 修改用户头像
+     */
+    @PostMapping("/modify_avatar")
+    public Result<String> modifyUserAvatar(@RequestParam("id") Long id, @RequestParam("file")MultipartFile file){
+        log.info("修改用户：{} 的头像",id);
+        userService.updateUserAvatar(id,file);
+        return Result.success("OK");
     }
 
 }

@@ -10,6 +10,7 @@ import com.csplatform.user.entities.vo.LoginResultVO;
 import com.csplatform.user.entities.vo.RegisterResultVO;
 import com.csplatform.user.entities.vo.UserInfoVO;
 import jakarta.validation.Valid;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -67,4 +68,11 @@ public interface UserService extends IService<User> {
      * @param size
      */
     void updateUserFileSpace(Long userId, Long size);
+
+    /**
+     * 修改用户头像
+     * @param id
+     * @param file
+     */
+    void updateUserAvatar(Long id, MultipartFile file);
 }

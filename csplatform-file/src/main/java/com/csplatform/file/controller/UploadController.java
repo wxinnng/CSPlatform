@@ -78,4 +78,15 @@ public class UploadController {
         return Result.success(fileService.uploadFile(fileInfo));
     }
 
+
+    /**
+     * 上传小文件
+     * @return : 返回上传的路径
+     */
+    @PostMapping("/upload_small_file")
+    public Result<String> uploadSmallFile(@RequestParam("file") MultipartFile file){
+        String avatarUrl = fileService.uploadSmallFile(file,null);
+        return Result.success(avatarUrl);
+    }
+
 }
