@@ -26,7 +26,9 @@ feign:
         userService: "http://localhost:8083"
         chatService: "http://localhost:8082"
         fileService: "http://localhost:8081"
+        courseService: "http://locahost:8084"
       path:
         userPath: "/user"
         chatPath: "/chat"
         filePath: "/file"
+        coursePath: "/course"

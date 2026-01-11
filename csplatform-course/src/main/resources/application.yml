@@ -1,8 +1,8 @@
 server:
   host: localhost
-  port: 8081
+  port: 8084
   servlet:
-    context-path: "/file"
+    context-path: "/course"
 # ==========applicationName + druid-mysql8 driver===================
 spring:
   application:
@@ -18,7 +18,7 @@ spring:
       file-size-threshold: 5MB
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
-    url: jdbc:mysql://localhost:3307/csplatform_file?characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3307/csplatform_course?characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true
     username: root
     password: wx
     # 关键修正：使用MySQL官方驱动类
@@ -39,15 +39,8 @@ spring:
         shutdown-timeout: 100ms
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml  # XML映射文件位置
-  type-aliases-package: com.example.entity      # 实体类所在包，用于别名简化
   configuration:
     map-underscore-to-camel-case: true          # 自动开启下划线到驼峰命名的映射
-minio:
-  bucketName: singing
-  endpoint: http://${server.host}:9000
-  accessKey: oxSs7bSxVwrqBIo8N4VN
-  secretKey: uISC7CG0amOn6vn7WSYFTWMWpymS5xP7mJch1Oxp
-  expire: 7200
 feign:
   client:
     config:
