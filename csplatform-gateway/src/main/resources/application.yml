@@ -20,11 +20,17 @@ spring:
             - Path=/api/user/**
           filters:
             - StripPrefix=1
+        - id: csplatform-course-router
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/course/**
+          filters:
+            - StripPrefix=1
       globalcors:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "http://localhost:5173"  # 指定具体前端地址
+            allowedOriginPatterns: "http://localhost:5173"  # 部署时注意这里TODO：指定具体前端地址
             allowedMethods:
               - GET
               - POST
