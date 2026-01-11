@@ -37,13 +37,7 @@ public class UserInfoController {
     @GetMapping("/{userId}")
     public Result<UserInfoVO> getUserInfo(@PathVariable Long userId){
         log.info("用户ID:" +userId);
-        try{
-            return Result.success(userService.getUserInfo(userId));
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            return Result.fail("服务器异常，请稍后再试！");
-        }
+        return Result.success(userService.getUserInfo(userId));
     }
 
     /**通过邮箱获得用户信息
@@ -52,13 +46,7 @@ public class UserInfoController {
     @GetMapping("/e")  // 路径是 /e/{email}
     public Result<UserInfoVO> getUserInfoByEmail(@RequestParam("email") String email){
         log.info("用户邮箱:" +email);
-        try{
-            return Result.success(userService.getUserInfoByEmail(email));
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            return Result.fail("服务器异常，请稍后再试！");
-        }
+        return Result.success(userService.getUserInfoByEmail(email));
     }
 
     /**
@@ -68,15 +56,9 @@ public class UserInfoController {
      */
     @PostMapping("/modify")
     public Result<String> modifyUserInfo(@RequestBody UserInfoVO user){
-        try{
-            userService.modifyUserInfo(user);
-            return Result.success("修改成功");
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            e.printStackTrace();
-            return Result.fail("服务器异常，请稍后再试！");
-        }
+        log.info("修改用户信息{}",user);
+        userService.modifyUserInfo(user);
+        return Result.success("修改成功");
     }
 
     /**
@@ -88,15 +70,8 @@ public class UserInfoController {
     @GetMapping("/updateFileSpace")
     Result<String> updateUserFileSpace(@RequestParam("userId") Long userId,@RequestParam("size") Long size){
         log.info("更新用户空间");
-        try{
-            userService.updateUserFileSpace(userId,size);
-            return Result.success("OK");
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            e.printStackTrace();
-            return Result.fail(e.getMessage());
-        }
+        userService.updateUserFileSpace(userId,size);
+        return Result.success("OK");
     }
 
     /**
@@ -105,15 +80,8 @@ public class UserInfoController {
     @GetMapping("/getAllAndUsedSpace")
     public Result<Map<String,Long>> getAllAndUsedSpace(@RequestParam("userId")Long userId){
         log.info("获得用户网盘空间,用户:{}",userId);
-        try{
-            Map<String, Long> result = userService.getUserFileSpace(userId);
-            return Result.success(result);
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            e.printStackTrace();
-            return Result.fail(e.getMessage());
-        }
+        Map<String, Long> result = userService.getUserFileSpace(userId);
+        return Result.success(result);
     }
 
 

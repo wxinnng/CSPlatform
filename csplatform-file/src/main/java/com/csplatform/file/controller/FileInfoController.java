@@ -51,16 +51,8 @@ public class FileInfoController {
     @GetMapping("/root")
     public Result<FolderVO> getCurrentUserRootFolder(@RequestParam("userId") Long id){
         log.info("当前用户 {}",id);
-        try{
-            FolderVO rootFiles = fileService.getRootFolderByUserId(id);
-            return Result.success(rootFiles);
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            e.printStackTrace();
-            return Result.fail("服务器异常！");
-        }
-
+        FolderVO rootFiles = fileService.getRootFolderByUserId(id);
+        return Result.success(rootFiles);
     }
 
 
@@ -70,15 +62,8 @@ public class FileInfoController {
     @GetMapping("/folder/{id}")
     public Result<List<FileInfo>> getFolderInfoById(@PathVariable("id") String id){
         log.info("当前文件夹 {}",id);
-        try{
-            List<FileInfo> fileInfos = fileService.getFolderById(id);
-            return Result.success(fileInfos);
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            return Result.fail("服务器异常！");
-        }
-
+        List<FileInfo> fileInfos = fileService.getFolderById(id);
+        return Result.success(fileInfos);
     }
 
     /**
@@ -87,14 +72,8 @@ public class FileInfoController {
     @PostMapping("/c_folder")
     public Result<String> newFolder(@RequestBody FileInfo folder){
         log.info("创建新的文件夹{}",folder);
-        try{
-            fileService.newFolder(folder);
-            return Result.success("新建文件夹成功");
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            return Result.fail("服务器异常！");
-        }
+        fileService.newFolder(folder);
+        return Result.success("新建文件夹成功");
     }
 
     /**
@@ -103,14 +82,8 @@ public class FileInfoController {
     @GetMapping("/init_file_root")
     public Result<String> initFileRoot(@RequestParam("id") Long id){
         log.info("初始化用户根目录");
-        try{
-            fileService.initFileRoot(id);
-            return Result.success("新建文件夹成功");
-        }catch (BusinessException e){
-            return Result.fail(e.getMessage());
-        }catch (Exception e){
-            return Result.fail("服务器异常！");
-        }
+        fileService.initFileRoot(id);
+        return Result.success("新建文件夹成功");
     }
 
     /**
