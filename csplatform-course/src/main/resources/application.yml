@@ -6,7 +6,7 @@ server:
 # ==========applicationName + druid-mysql8 driver===================
 spring:
   application:
-    name: csplatform-file-service
+    name: csplatform-course-service
   mvc:
     pathmatch:
       matching-strategy: ANT_PATH_MATCHER
