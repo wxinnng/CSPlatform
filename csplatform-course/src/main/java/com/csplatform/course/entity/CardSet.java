@@ -46,9 +46,12 @@ public class CardSet {
 
     private Integer learningNum;
 
-    private Integer description;
+    private String description;
 
     private LocalDateTime updateTime;
+
+    @TableField(exist = false)
+    private String jsonData;
 
 
 }

@@ -15,10 +15,13 @@ import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.Builder;
 import jakarta.validation.constraints.NotNull;
+import lombok.experimental.Accessors;
+
 import java.time.LocalDateTime;
 
 @Data
 @Builder
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserCardSet {

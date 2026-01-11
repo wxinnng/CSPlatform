@@ -23,6 +23,7 @@ public class GlobalExceptionHandler {
     @ResponseBody
     public Result<String> exceptionHandler(Exception e){
         log.error(e.getMessage());
+        e.printStackTrace();
         return Result.fail(e.getMessage());
     }
 
