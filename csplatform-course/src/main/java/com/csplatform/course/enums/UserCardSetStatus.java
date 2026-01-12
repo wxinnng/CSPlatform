@@ -12,7 +12,8 @@ public enum UserCardSetStatus {
     NOT_STARTED(0, "未开始"),
     STUDYING(1, "学习中"),
     COMPLETED(2, "已完成"),
-    PAUSED(3, "暂停");
+    PAUSED(3, "暂停"),
+    END(4,"终止");
 
     private final Integer code;
     private final String desc;

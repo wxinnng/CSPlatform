@@ -2,7 +2,10 @@ package com.csplatform.course.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.csplatform.course.entity.CardSet;
+import jakarta.validation.constraints.NotNull;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * @Author WangXing
@@ -13,4 +16,7 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface CardSetMapper extends BaseMapper<CardSet> {
+
+    @Update("update card_set set learning_num = learning_num - 1 where id = #{cardSetId}")
+    int decreaseOne(@Param("cardSetId") Long cardSetId);
 }
