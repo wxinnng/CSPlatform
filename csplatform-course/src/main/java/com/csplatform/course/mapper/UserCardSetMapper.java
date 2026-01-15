@@ -29,4 +29,5 @@ public interface UserCardSetMapper extends BaseMapper<UserCardSet> {
 
     @Update("delete from user_card_set where id = #{id};")
     int removeCard(@Param("id")  Long id);
+
 }

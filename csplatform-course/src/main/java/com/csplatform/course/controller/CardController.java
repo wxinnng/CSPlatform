@@ -2,11 +2,14 @@ package com.csplatform.course.controller;
 
 import com.csplatform.common.exception.BusinessException;
 import com.csplatform.common.resp.Result;
+import com.csplatform.course.entity.Card;
 import com.csplatform.course.entity.CardSet;
+import com.csplatform.course.entity.vo.StudyCardVO;
 import com.csplatform.course.entity.vo.UserCardSetVO;
 import com.csplatform.course.service.CardService;
 import com.csplatform.course.service.CardSetService;
 import com.csplatform.course.service.UserCardSetService;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -77,6 +80,17 @@ public class CardController {
         return Result.success(cards);
     }
 
+
+    /**
+     * 获得所有用户发布的卡片
+     */
+    @GetMapping("/get_published_cards")
+    public Result<List<CardSet>> getAllPublishedCards(@RequestParam("userId") Long userId){
+        log.info("获得用户:{} 所有的发布的卡片",userId);
+        List<CardSet> cardSetVOS = cardSetService.getAllPublishedCards(userId);
+        return Result.success(cardSetVOS);
+    }
+
     /**
      * 删除当前学习内容
      */
@@ -87,4 +101,55 @@ public class CardController {
         return Result.success("删除成功！");
     }
 
+    /**
+     * 插入一个卡片
+     */
+    @PostMapping("/add_card")
+    public Result<Card> addCard(@RequestBody Card card){
+        log.info("card:{}",card);
+        return Result.success(cardService.addCard(card));
+    }
+
+    /**
+     * 获得所有的卡片
+     */
+    @GetMapping("/get_cards")
+    public Result<List<Card>> getAllCards(@RequestParam("cardSetId") Long cardSetId){
+        log.info("cardSetId: {}",cardSetId);
+        List<Card> cards = cardService.getAllCardSByCardSetId(cardSetId);
+        return Result.success(cards);
+    }
+
+
+    /**
+     * 删除card
+     */
+    @GetMapping("/delete_card")
+    public Result<String> deleteCard(@RequestParam("cardId") Long cardId){
+        log.info("删除的CardId:{}",cardId);
+        cardService.deleteCard(cardId);
+        return Result.success("OK");
+    }
+
+    /**
+     * 学习卡片
+     */
+    @GetMapping("/next_card")
+    public Result<StudyCardVO> nextCard(@RequestParam("cardSetId") Long cardSetId,
+                                 @NotNull @RequestParam("userCardSetId") Long userCardSetId,
+                                 @RequestParam("pageSize") Integer pageSize,
+                                 @NotNull @RequestParam("pageNum") Integer pageNum){
+        log.info("学习卡片:cardSetId {} ,num : {}", cardSetId ,pageNum);
+        StudyCardVO nextCard = cardService.getNextStudyCard(cardSetId,userCardSetId,pageSize,pageNum);
+        return Result.success(nextCard);
+    }
+
+    /**
+     * 开始学习卡片
+     */
+    @GetMapping("/start_study_card")
+    public Result<StudyCardVO> startStudyCard(@RequestParam("userId")Long userId, @RequestParam("cardSetId") Long cardSetId){
+        log.info("学习卡片 userId: {},cardSetId :{}",userId,cardSetId);
+        return Result.success(cardService.startStudyCard(userId,cardSetId));
+    }
 }

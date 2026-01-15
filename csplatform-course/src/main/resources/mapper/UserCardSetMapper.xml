@@ -16,6 +16,7 @@
     <select id="selectLinkedCardSetsByUserId" resultMap="UserCardSetVOResultMap">
         SELECT
         ucs.id,               <!-- 这里改为 user_card_set 的 id -->
+        ucs.card_set_id,
         cs.user_id,
         cs.title,
         cs.cover_url
@@ -26,4 +27,8 @@
         AND ucs.status != 4
         ORDER BY cs.create_time DESC
     </select>
+
+
+
+
 </mapper>

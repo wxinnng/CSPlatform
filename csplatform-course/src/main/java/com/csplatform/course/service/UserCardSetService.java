@@ -1,6 +1,7 @@
 package com.csplatform.course.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.csplatform.course.entity.CardSet;
 import com.csplatform.course.entity.UserCardSet;
 import com.csplatform.course.entity.vo.UserCardSetVO;
 
@@ -21,7 +22,7 @@ public interface UserCardSetService extends IService<UserCardSet> {
      * @param userId
      * @param cardSetId
      */
-    void studyCardSet(Long userId, Long cardSetId);
+    UserCardSet studyCardSet(Long userId, Long cardSetId);
 
     /**
      * 获得用户所有的在学习中的卡片
@@ -35,4 +36,6 @@ public interface UserCardSetService extends IService<UserCardSet> {
      * @param id
      */
     void deleteLearningCardById(Long id);
+
+
 }

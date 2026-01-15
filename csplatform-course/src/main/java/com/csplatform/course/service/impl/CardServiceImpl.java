@@ -9,11 +9,15 @@ import com.csplatform.common.exception.BusinessException;
 import com.csplatform.course.entity.Card;
 import com.csplatform.course.entity.CardSet;
 import com.csplatform.course.entity.UserCardSet;
+import com.csplatform.course.entity.vo.StudyCardVO;
+import com.csplatform.course.enums.CardStatusEnum;
 import com.csplatform.course.enums.UserCardSetStatus;
 import com.csplatform.course.mapper.CardMapper;
 import com.csplatform.course.mapper.CardSetMapper;
 import com.csplatform.course.mapper.UserCardSetMapper;
 import com.csplatform.course.service.CardService;
+import com.csplatform.course.service.CardSetService;
+import com.csplatform.course.service.UserCardSetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +36,177 @@ import java.util.List;
 public class CardServiceImpl extends ServiceImpl<CardMapper, Card> implements CardService {
 
 
+    @Autowired
+    private CardMapper cardMapper;
+
+    @Autowired
+    private CardSetService cardSetService;
+
+    @Autowired
+    private UserCardSetService userCardSetService;
+
+    @Autowired
+    private UserCardSetMapper userCardSetMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Card addCard(Card card) {
+        // 处理imgArray转换为imgUrl：将URL列表用竖线连接
+        if (card.getImgArray() != null && card.getImgArray().length != 0) {
+            String imgUrl = String.join("|", card.getImgArray());
+            card.setImgUrl(imgUrl);
+        } else {
+            card.setImgUrl(""); // 如果imgArray为空，设置空字符串
+        }
+
+        //1.插入card表中
+        card.setStatus(CardStatusEnum.ENABLED.getCode());
+        card.setUpdateTime(LocalDateTime.now());
+        int insert = cardMapper.insert(card);
+        if(insert < 1)
+            throw new BusinessException("操作失败！");
+        //2.update cardSet表
+        cardSetService.incrCardNum(card.getCardSetId());
+        return card;
+    }
+
+    @Override
+    @Transactional
+    public StudyCardVO startStudyCard(Long userId, Long cardSetId) {
+        //1.查询cardSetjilu
+        LambdaQueryWrapper<UserCardSet> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserCardSet::getUserId,userId)
+                .eq(UserCardSet::getCardSetId,cardSetId);
+
+        //2.查询数据
+        List<UserCardSet> userCardSets = userCardSetMapper.selectList(queryWrapper);
+
+        //3.判断正确性
+        if(userCardSets.size() > 1){
+            throw new BusinessException("参数错误!");
+        }
+
+        UserCardSet userCardSet = null;
+
+        if(userCardSets.isEmpty()){
+            //插入
+            userCardSet = userCardSetService.studyCardSet(userId,cardSetId);
+        }else{
+            userCardSet = userCardSets.get(0);
+        }
+        //4.查询card对象
+        if(userCardSet.getNowStudyCardId() == null)
+            userCardSet.setNowStudyCardId(1L);
 
 
+        return getNextStudyCard(cardSetId, userCardSet.getId(), 1, 1);
+    }
 
+    @Override
+    @Transactional
+    public StudyCardVO getNextStudyCard(Long cardSetId,Long userCardSetId ,Integer pageSize, Integer num) {
+
+
+        //直接使用mapper来查
+        Card card = cardMapper.selectByOrderedIndex(cardSetId,num);
+
+        StudyCardVO studyCardVO = new StudyCardVO();
+
+        //card == null
+        if(card == null){
+            //已经没有更多数据了
+            studyCardVO.setIsEnd(true);
+            //返回对象
+            return studyCardVO;
+        }
+
+
+        // 4. 更新学习进度
+        updateStudyRecord(userCardSetId);
+
+        // 5. 返回数据列表
+        //5.1数据整型
+        parseImgUrlToArray(card);
+
+        //封装对象
+        studyCardVO.setId(card.getId());
+        studyCardVO.setImgArray(card.getImgArray());
+        studyCardVO.setContent(card.getContent());
+        studyCardVO.setUserCardSetId(userCardSetId);
+        studyCardVO.setNowStudyId(num);
+
+        return studyCardVO;
+    }
+
+
+    private void updateStudyRecord(Long userCardSetId){
+
+        //构造wrapper
+        LambdaUpdateWrapper<UserCardSet> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(UserCardSet::getId,userCardSetId)
+                .setIncrBy(UserCardSet::getNowStudyCardId,1);
+
+        //执行update操作
+        boolean update = userCardSetService.update(updateWrapper);
+        if(!update)
+            throw new BusinessException("操作失败！");
+
+    }
+
+
+    @Override
+    public List<Card> getAllCardSByCardSetId(Long cardSetId) {
+        //1. 原有的查询逻辑
+        LambdaQueryWrapper<Card> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Card::getCardSetId, cardSetId)
+                .eq(Card::getStatus, CardStatusEnum.ENABLED.getCode())
+                .orderByAsc(Card::getUpdateTime);
+        List<Card> cardList = cardMapper.selectList(queryWrapper);
+
+        //2. 遍历查询结果，为每个Card对象解析imgUrl并填充imgArray
+        for (Card card : cardList) {
+            // 调用解析方法
+            parseImgUrlToArray(card);
+            //减少数量
+            card.setImgUrl(null);
+        }
+
+        //3. 返回处理后的列表
+        return cardList;
+    }
+
+    @Override
+    public void deleteCard(Long cardId) {
+        LambdaUpdateWrapper<Card> updateWrapper = new LambdaUpdateWrapper<>();
+
+        updateWrapper.eq(Card::getId,cardId)
+                .set(Card::getStatus,CardStatusEnum.DELETED.getCode());
+
+        //执行
+        int update = cardMapper.update(updateWrapper);
+        if(update < 1)
+            throw new BusinessException("操作失败！");
+    }
+
+    /**
+     * 将Card对象的imgUrl字符串按竖线分隔符解析到imgArray中
+     */
+    private void parseImgUrlToArray(Card card) {
+        // 获取imgUrl字段的值
+        String imgUrl = card.getImgUrl();
+
+        // 检查imgUrl是否为空或null
+        if (imgUrl == null || imgUrl.trim().isEmpty()) {
+            // 如果为空，可以设置为一个空数组，避免后续操作出现NullPointerException
+            card.setImgArray(null); // 或者根据你的需求，setImgArray(null)
+            return;
+        }
+
+        // 使用split方法按转义的竖线进行分割
+        // 关键：竖线 | 是正则表达式元字符，需要转义成 \\|
+        String[] imgArray = imgUrl.split("\\|");
+
+        // 将分割后的数组设置回Card对象
+        card.setImgArray(imgArray);
+    }
 }

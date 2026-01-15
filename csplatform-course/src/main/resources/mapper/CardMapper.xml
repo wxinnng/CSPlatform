@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.csplatform.course.mapper.CardMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.csplatform.course.entity.Card">
+        <id column="id" property="id" />
+        <result column="card_set_id" property="cardSetId" />
+        <result column="content" property="content" />
+        <result column="img_url" property="imgUrl" />
+        <result column="update_time" property="updateTime" />
+        <result column="status" property="status" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, card_set_id, content, img_url, update_time, status
+    </sql>
+
+    <!-- 根据排序位置获取单个卡片 -->
+    <select id="selectByOrderedIndex" resultMap="BaseResultMap">
+        SELECT t.* FROM (
+        SELECT
+        ROW_NUMBER() OVER (ORDER BY update_time ASC) as row_num,
+        card.*
+        FROM card
+        WHERE status = 1
+        <if test="cardSetId != null">
+            AND card_set_id = #{cardSetId}
+        </if>
+        ) t
+        WHERE t.row_num = #{num}
+    </select>
+
+</mapper>

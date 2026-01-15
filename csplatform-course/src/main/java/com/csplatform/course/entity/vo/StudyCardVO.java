@@ -1,48 +1,47 @@
-package com.csplatform.course.entity;
+package com.csplatform.course.entity.vo;
 
-/**
- * @Author WangXing
- * @Date 2026/1/10 19:00
- * @PackageName:com.csplatform.course.entity
- * @ClassName: Card
- * @Version 1.0
- */
-
-import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
-import lombok.Data;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import lombok.Builder;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
+
+/**
+ * @Author WangXing
+ * @Date 2026/1/15 15:15
+ * @PackageName:com.csplatform.course.entity.vo
+ * @ClassName: StudyCardVO
+ * @Version 1.0
+ */
 
 @Data
-@Builder
-@NoArgsConstructor
 @AllArgsConstructor
-public class Card {
+@NoArgsConstructor
+public class StudyCardVO {
+
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     @NotNull(message = "单词集ID不能为空")
     private Long cardSetId;
 
+    private Long userCardSetId;
+
     @NotBlank(message = "卡片内容不能为空")
     private String content;
 
-    private String imgUrl;
 
-    private LocalDateTime updateTime;
-
-    private Integer status;
+    private Integer nowStudyId;
 
     @TableField(exist = false)
     private String[]  imgArray;
+
+
+    private Boolean isEnd = false;
+
 }

@@ -35,7 +35,7 @@ public class UserInfoController {
      * 获得用户信息
      */
     @GetMapping("/{userId}")
-    public Result<UserInfoVO> getUserInfo(@PathVariable Long userId){
+    public Result<UserInfoVO> getUserInfo(@PathVariable("userId") Long userId){
         log.info("用户ID:" +userId);
         return Result.success(userService.getUserInfo(userId));
     }

@@ -37,6 +37,8 @@ public class UserCardSetServiceImpl extends ServiceImpl<UserCardSetMapper, UserC
     private CardSetMapper cardSetMapper;
 
 
+
+
     @Override
     @Transactional
     public void deleteLearningCardById(Long id) {
@@ -64,7 +66,7 @@ public class UserCardSetServiceImpl extends ServiceImpl<UserCardSetMapper, UserC
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void studyCardSet(Long userId, Long cardSetId) {
+    public UserCardSet studyCardSet(Long userId, Long cardSetId) {
 
         // 1.查询参数是否正确
         CardSet cardSet = cardSetMapper.selectById(cardSetId);
@@ -101,5 +103,7 @@ public class UserCardSetServiceImpl extends ServiceImpl<UserCardSetMapper, UserC
         if (update < 1) {
             throw new BusinessException("操作失败！");
         }
+
+        return userCardSet;
     }
 }

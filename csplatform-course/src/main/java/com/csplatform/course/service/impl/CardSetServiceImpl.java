@@ -1,6 +1,7 @@
 package com.csplatform.course.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -65,5 +66,48 @@ public class CardSetServiceImpl extends ServiceImpl<CardSetMapper, CardSet> impl
         // 4. 返回数据列表
         return resultPage.getRecords();
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void incrCardNum(Long cardSetId) {
+        //1.wrapper
+        LambdaUpdateWrapper<CardSet> updateWrapper = new LambdaUpdateWrapper<>();
+
+        //2.设置参数
+        updateWrapper.eq(CardSet::getId,cardSetId)
+                .set(CardSet::getUpdateTime,LocalDateTime.now())
+                .setIncrBy(CardSet::getCardNum,1);
+
+        //3.执行
+        int update = cardSetMapper.update(updateWrapper);
+        if(update < 1)
+            throw new BusinessException("操作失败！");
+    }
+
+    @Override
+    public void decrCardNum(Long cardSetId) {
+        //1.wrapper
+        LambdaUpdateWrapper<CardSet> updateWrapper = new LambdaUpdateWrapper<>();
+
+        //2.设置参数
+        updateWrapper.eq(CardSet::getId,cardSetId)
+                .set(CardSet::getUpdateTime,LocalDateTime.now())
+                .setDecrBy(CardSet::getCardNum,1);
+
+        //3.执行
+        int update = cardSetMapper.update(updateWrapper);
+        if(update < 1)
+            throw new BusinessException("操作失败！");
+    }
+
+    @Override
+    public List<CardSet> getAllPublishedCards(Long userId) {
+        //1.构造查询条件
+        LambdaQueryWrapper<CardSet> cardSetQuery = new LambdaQueryWrapper<>();
+        cardSetQuery.eq(CardSet::getUserId,userId);
+        return cardSetMapper.selectList(cardSetQuery);
+    }
+
+
 
 }
