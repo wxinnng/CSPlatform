@@ -43,11 +43,11 @@ public interface CardSetService extends IService<CardSet> {
      * 更新CardNum
      * @param cardSetId
      */
-    void incrCardNum(@NotNull(message = "单词集ID不能为空") Long cardSetId);
+    void incrCardNum(@NotNull(message = "单词集ID不能为空") Long cardSetId,Integer num);
 
     /**
      * 减少CardNum
      * @param cardSetId
      */
-    void decrCardNum(@NotNull Long cardSetId);
+    void decrCardNum(@NotNull Long cardSetId,Integer num);
 }

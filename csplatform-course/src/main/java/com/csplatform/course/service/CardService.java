@@ -3,6 +3,7 @@ package com.csplatform.course.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.csplatform.course.entity.Card;
 import com.csplatform.course.entity.CardSet;
+import com.csplatform.course.entity.vo.CardBatchInputVO;
 import com.csplatform.course.entity.vo.StudyCardVO;
 
 import java.util.List;
@@ -54,4 +55,16 @@ public interface CardService extends IService<Card> {
      * @return
      */
     StudyCardVO startStudyCard(Long userId, Long cardSetId);
+
+    /**
+     * 批量导入卡片
+     * @param cardBatchInputVO
+     */
+    void cardBatchInput(CardBatchInputVO cardBatchInputVO);
+
+    /**
+     * 修改卡片信息
+     * @param card
+     */
+    void updateCard(Card card);
 }

@@ -69,14 +69,14 @@ public class CardSetServiceImpl extends ServiceImpl<CardSetMapper, CardSet> impl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void incrCardNum(Long cardSetId) {
+    public void incrCardNum(Long cardSetId,Integer num) {
         //1.wrapper
         LambdaUpdateWrapper<CardSet> updateWrapper = new LambdaUpdateWrapper<>();
 
         //2.设置参数
         updateWrapper.eq(CardSet::getId,cardSetId)
                 .set(CardSet::getUpdateTime,LocalDateTime.now())
-                .setIncrBy(CardSet::getCardNum,1);
+                .setIncrBy(CardSet::getCardNum,num);
 
         //3.执行
         int update = cardSetMapper.update(updateWrapper);
@@ -85,14 +85,14 @@ public class CardSetServiceImpl extends ServiceImpl<CardSetMapper, CardSet> impl
     }
 
     @Override
-    public void decrCardNum(Long cardSetId) {
+    public void decrCardNum(Long cardSetId,Integer num) {
         //1.wrapper
         LambdaUpdateWrapper<CardSet> updateWrapper = new LambdaUpdateWrapper<>();
 
         //2.设置参数
         updateWrapper.eq(CardSet::getId,cardSetId)
                 .set(CardSet::getUpdateTime,LocalDateTime.now())
-                .setDecrBy(CardSet::getCardNum,1);
+                .setDecrBy(CardSet::getCardNum,num);
 
         //3.执行
         int update = cardSetMapper.update(updateWrapper);

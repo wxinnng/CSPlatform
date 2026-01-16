@@ -4,6 +4,7 @@ import com.csplatform.common.exception.BusinessException;
 import com.csplatform.common.resp.Result;
 import com.csplatform.course.entity.Card;
 import com.csplatform.course.entity.CardSet;
+import com.csplatform.course.entity.vo.CardBatchInputVO;
 import com.csplatform.course.entity.vo.StudyCardVO;
 import com.csplatform.course.entity.vo.UserCardSetVO;
 import com.csplatform.course.service.CardService;
@@ -152,4 +153,28 @@ public class CardController {
         log.info("学习卡片 userId: {},cardSetId :{}",userId,cardSetId);
         return Result.success(cardService.startStudyCard(userId,cardSetId));
     }
+
+    /**
+     * 批量导入card
+     */
+    @PostMapping("/input_cards_batch")
+    public Result<String> inputCardsBatch(@RequestBody CardBatchInputVO cardBatchInputVO){
+        log.info("批量插入的数据: {}",cardBatchInputVO);
+        cardService.cardBatchInput(cardBatchInputVO);
+        return Result.success("OK");
+    }
+
+    /**
+     * 修改卡片
+     */
+    @PostMapping("/update_card")
+    public Result<String> updateCard(@RequestBody Card card){
+        log.info("修改卡片信息 : {}",card);
+        cardService.updateCard(card);
+        return Result.success("OK");
+    }
+
+
+
 }
+

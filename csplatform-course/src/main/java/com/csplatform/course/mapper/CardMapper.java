@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Param;
  * @Version 1.0
  */
 @Mapper
-public interface CardMapper extends BaseMapper<Card> {
+public interface CardMapper extends MyBaseMapper<Card> {
 
     Card selectByOrderedIndex(@Param("cardSetId") Long cardSetId, @Param("num") Integer num);
 
