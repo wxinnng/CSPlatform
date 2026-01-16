@@ -45,6 +45,13 @@ mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml  # XML映射文件位置
   configuration:
     map-underscore-to-camel-case: true          # 自动开启下划线到驼峰命名的映射
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    global-config:
+      db-config:
+        id-type: auto
+        logic-delete-field: deleted
+        logic-delete-value: 1
+        logic-not-delete-value: 0
 feign:
   client:
     config:
