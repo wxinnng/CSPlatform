@@ -55,6 +55,16 @@ public class FileInfoController {
         return Result.success(rootFiles);
     }
 
+    /**
+     * 内部：API，获得文件信息
+     */
+//    @PostMapping("/getFileInfo")
+//    public Result<FileInfo> getFileInfoAPI(@RequestBody FileInfo fileInfo){
+//        log.info("API file : {}",fileInfo);
+//        FileInfo fi = fileService.getFileInfoByFileAPI(fileInfo);
+//        return Result.success(fi);
+//    }
+
 
     /**
      * 通过目录Id获得对应目录信息

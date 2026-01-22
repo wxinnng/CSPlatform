@@ -103,4 +103,5 @@ public interface FileService {
      * @param ids
      */
     void restoreFiles(List<String> ids);
+
 }
