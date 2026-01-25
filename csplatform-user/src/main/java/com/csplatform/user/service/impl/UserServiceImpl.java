@@ -14,6 +14,7 @@ import com.csplatform.user.entities.dto.RegisterDTO;
 import com.csplatform.user.entities.vo.LoginResultVO;
 import com.csplatform.user.entities.vo.LoginResultVO.UserVO;
 import com.csplatform.user.entities.vo.RegisterResultVO;
+import com.csplatform.user.entities.vo.SearchUserVO;
 import com.csplatform.user.entities.vo.UserInfoVO;
 import com.csplatform.user.mapper.UserMapper;
 import com.csplatform.user.service.UserService;
@@ -143,6 +144,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         int update = userMapper.update(null, updateWrapper);
         if(update < 1)
             throw new BusinessException("更新失败！");
+    }
+
+    @Override
+    public SearchUserVO searchUserById(Long id) {
+        SearchUserVO searchUserVO = userMapper.searchAddUserInfo(id);
+        if(searchUserVO == null)
+            throw new BusinessException("没有该用户!");
+
+        return searchUserVO;
+    }
+
+    @Override
+    public String getUserAvatar(Long id) {
+        LambdaQueryWrapper<User> wrap = new LambdaQueryWrapper<>();
+        wrap.select(User::getAvatarUrl)
+                .eq(User::getId,id);
+        //返回头像
+        return userMapper.selectOne(wrap).getAvatarUrl();
     }
 
     @Override

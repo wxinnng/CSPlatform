@@ -160,4 +160,12 @@ public class FileInfoController {
         fileService.restoreFiles(ids);
         return Result.success("OK");
     }
+
+    @GetMapping("/get_url")
+    public Result<String> getUrlByFileId(@RequestParam("fileId") String fileId){
+        log.info("fileID: {}",fileId);
+        return Result.success(fileService.getFileUrlByFileId(fileId));
+    }
+
+
 }

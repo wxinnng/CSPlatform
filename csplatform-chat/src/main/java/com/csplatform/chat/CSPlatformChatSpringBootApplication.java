@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * @Author WangXing
@@ -15,6 +16,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @MapperScan("com.csplatform.chat.mapper")
+@EnableFeignClients
 public class CSPlatformChatSpringBootApplication {
     public static void main(String[] args) {
         SpringApplication.run(CSPlatformChatSpringBootApplication.class,args);

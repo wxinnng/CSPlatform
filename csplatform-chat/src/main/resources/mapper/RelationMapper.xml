@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.csplatform.chat.mapper.RelationMapper">
+    <select id="selectContactsWithLastMessage" resultType="com.csplatform.chat.entities.vo.ContactVO">
+        SELECT
+            r.user_b AS id,
+            m.create_time AS lastTime,
+            m.content AS lastMessage,
+            m.category AS category
+        FROM relation r
+                 LEFT JOIN (
+            -- 子查询：获取每个聊天对的最后一条消息
+            SELECT
+                CASE
+                    WHEN send_user = #{userId} THEN receive_user
+                    WHEN send_user = 1001 THEN receive_user  -- 固定值1001
+                    ELSE send_user
+                    END AS other_user,
+                content,
+                create_time,
+                category,  -- 添加缺失的category字段
+                ROW_NUMBER() OVER (
+                PARTITION BY
+                    CASE
+                        WHEN send_user = #{userId} THEN receive_user
+                        WHEN send_user = 1001 THEN receive_user  -- 固定值1001
+                        ELSE send_user
+                    END
+                ORDER BY create_time DESC
+            ) as rn
+            FROM message
+            WHERE (send_user = #{userId} OR receive_user = #{userId}
+                OR send_user = 1001 OR receive_user = 1001)  -- 固定值1001
+        ) m ON r.user_b = m.other_user AND m.rn = 1
+        WHERE (r.user_a = #{userId} OR r.user_a = 1001)  -- 固定值1001
+          AND r.status = 1
+        ORDER BY COALESCE(m.create_time, '1970-01-01') DESC
+    </select></mapper>

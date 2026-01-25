@@ -104,4 +104,10 @@ public interface FileService {
      */
     void restoreFiles(List<String> ids);
 
+    /**
+     * 拼接：baseUrl + filePath
+     * @param fileId
+     * @return
+     */
+    String getFileUrlByFileId(String fileId);
 }

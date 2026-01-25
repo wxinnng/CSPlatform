@@ -19,7 +19,7 @@ public interface FileService {
     /**
      * 初始化root
      */
-    @PostMapping("/info/init_file_root")
+    @GetMapping("/info/init_file_root")
     public Result<String> initFileRoot(@RequestParam("id") Long id); // 正确：显式指定参数名为"id"
 
 

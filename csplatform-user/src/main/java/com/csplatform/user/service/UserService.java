@@ -8,6 +8,7 @@ import com.csplatform.user.entities.dto.LoginDTO;
 import com.csplatform.user.entities.dto.RegisterDTO;
 import com.csplatform.user.entities.vo.LoginResultVO;
 import com.csplatform.user.entities.vo.RegisterResultVO;
+import com.csplatform.user.entities.vo.SearchUserVO;
 import com.csplatform.user.entities.vo.UserInfoVO;
 import jakarta.validation.Valid;
 import org.springframework.web.multipart.MultipartFile;
@@ -75,4 +76,18 @@ public interface UserService extends IService<User> {
      * @param file
      */
     void updateUserAvatar(Long id, MultipartFile file);
+
+    /**
+     * 获得用户头像
+     * @param id
+     * @return
+     */
+    String getUserAvatar(Long id);
+
+    /**
+     * 搜索用户
+     * @param id
+     * @return
+     */
+    SearchUserVO searchUserById(Long id);
 }

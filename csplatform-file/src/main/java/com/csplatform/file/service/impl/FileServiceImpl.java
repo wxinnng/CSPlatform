@@ -488,6 +488,18 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, FileInfo> implement
         }
     }
 
+    @Override
+    public String getFileUrlByFileId(String fileId) {
+        LambdaQueryWrapper<FileInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.select(FileInfo::getFilePath)
+                .eq(FileInfo::getFileId,fileId);
+
+        FileInfo fileInfo = fileInfoMapper.selectOne(queryWrapper);
+
+        if(fileInfo == null)
+            throw new BusinessException("参数错误");
+        return minioProperties.getEndpoint() + "/" + fileInfo.getFilePath();
+    }
 
 
     /**

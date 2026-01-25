@@ -3,6 +3,7 @@ package com.csplatform.user.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.csplatform.user.entities.User;
+import com.csplatform.user.entities.vo.SearchUserVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -82,4 +83,5 @@ public interface UserMapper extends BaseMapper<User> {
     //获得空间使用情况
     Map<String, Long> getSizeInfo(@Param("id") Long id);
 
+    SearchUserVO searchAddUserInfo(@Param("id") Long id);
 }

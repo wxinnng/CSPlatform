@@ -60,7 +60,7 @@ feign:
     config:
       service:
         userService: "http://localhost:8083"
-        chatService: "http://localhost:8082"
+        chatService: "http://localhost:8085"
         fileService: "http://localhost:8081"
         courseService: "http://locahost:8084"
       path:

@@ -245,5 +245,11 @@
         GROUP BY DATE(created_at)
         ORDER BY date DESC
     </select>
+    <select id="searchAddUserInfo" resultType="com.csplatform.user.entities.vo.SearchUserVO">
+        select
+            id,username,avatar_url
+        from user
+        where id = #{id}
+    </select>
 
 </mapper>

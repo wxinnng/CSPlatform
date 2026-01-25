@@ -4,6 +4,7 @@ import cn.hutool.log.Log;
 import com.csplatform.common.exception.BusinessException;
 import com.csplatform.common.resp.Result;
 import com.csplatform.user.entities.User;
+import com.csplatform.user.entities.vo.SearchUserVO;
 import com.csplatform.user.entities.vo.UserInfoVO;
 import com.csplatform.user.mapper.UserMapper;
 import com.csplatform.user.service.UserService;
@@ -94,6 +95,26 @@ public class UserInfoController {
         userService.updateUserAvatar(id,file);
         return Result.success("OK");
     }
+
+
+    /**
+     * 获得用户头像
+     */
+    @GetMapping("/get_avatar")
+    public Result<String> getUserAvatar(@RequestParam("id") Long id){
+        log.info("user : {}",id);
+        return Result.success(userService.getUserAvatar(id));
+    }
+
+    /**
+     * 搜索用户
+     */
+    @GetMapping("/search_user")
+    public Result<SearchUserVO> searchUser(@RequestParam("id") Long id){
+        log.info("搜索用户:{}",id);
+        return Result.success(userService.searchUserById(id));
+    }
+
 
 }
 
